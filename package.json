@@ -7,12 +7,16 @@
   "scripts": {
     "dev": "astro dev --port 4321 --host",
     "build": "astro build",
-    "preview": "astro preview --port 4321 --host"
+    "preview": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy",
+    "cf-typegen": "wrangler types"
   },
   "dependencies": {
+    "@astrojs/cloudflare": "12",
     "astro": "^5.13.0"
   },
   "devDependencies": {
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "wrangler": "^4.131.1"
   }
 }
