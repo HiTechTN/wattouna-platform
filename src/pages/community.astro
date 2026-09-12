@@ -1,0 +1,87 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const SUPA_URL = import.meta.env.PUBLIC_SUPABASE_URL || '';
+const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
+---
+<BaseLayout title="المجتمع — دوائر الصانعين">
+  <div class="container block" style="padding-top:2.5rem">
+    <div class="section-head">
+      <span class="kicker">🌍 مجتمع الصانعين</span>
+      <h2>دوائر تشاركها المجتمع</h2>
+      <p>انسخ أي تصميم (Fork) وعدّله في المختبر — المعرفة الحرة تكبر بالمشاركة. <a href="/workbench">🧪 افتح المختبر</a></p>
+    </div>
+    <div id="comRoot" class="grid-3"><div class="card"><p>⏳ جارٍ التحميل…</p></div></div>
+  </div>
+</BaseLayout>
+
+<script type="module" define:vars={{ SUPA_URL, SUPA_ANON }}>
+  import { createClient } from '/vendor/supabase.js';
+  import { localListProjects } from '/vendor/wb-store.js';
+
+  const isSupabaseConfigured = Boolean(SUPA_URL && SUPA_ANON);
+  let supabase = null;
+  try {
+    if (isSupabaseConfigured) supabase = createClient(SUPA_URL, SUPA_ANON);
+  } catch (e) { supabase = null; }
+
+  const root = document.getElementById('comRoot');
+  const esc = (s) => String(s ?? '').replace(/</g, '&lt;');
+  const fmtDate = (d) => { try { return new Date(d).toLocaleDateString('ar'); } catch (e) { return ''; } };
+
+  function summary(st) {
+    const nodes = st?.nodes || [], wires = st?.wires || [];
+    const kinds = {};
+    nodes.forEach((n) => { kinds[n.type] = (kinds[n.type] || 0) + 1; });
+    const parts = Object.entries(kinds).map(([k, v]) => `${k}×${v}`).join(' • ');
+    return `🧩 ${nodes.length} مكوّنات • 🔌 ${wires.length} أسلاك${parts ? '<br><small dir="ltr">' + esc(parts) + '</small>' : ''}`;
+  }
+
+  function card(p, forks) {
+    const name = p.author_name || p.profiles?.display_name || p.profiles?.username || 'صانع مجهول';
+    const av = p.author_avatar || p.profiles?.avatar_url;
+    return `<div class="card prof-card">
+      <div class="com-author">${av ? `<img src="${esc(av)}" alt="" />` : '<span class="auth-ph">⚡</span>'}<span><b>${esc(p.title || 'دارة بدون عنوان')}</b><small>👤 ${esc(name)} • 📅 ${fmtDate(p.created_at)}</small></span></div>
+      <p class="com-sum">${summary(p.canvas_state)}</p>
+      ${p.description ? `<small>${esc(p.description)}</small>` : ''}
+      <div class="prof-actions">
+        <a class="btn btn-cyan prof-mini" href="/workbench?id=${p.id}">فتح في المختبر</a>
+        <a class="btn btn-amber prof-mini" href="/workbench?fork=${p.id}">🍴 نسخ الدارة (${forks})</a>
+      </div>
+    </div>`;
+  }
+
+  if (!isSupabaseConfigured || !supabase) {
+    const local = localListProjects();
+    root.innerHTML = (local.length
+      ? local.map((p) => card({ ...p, author_name: 'أنت (محلي)' }, 0)).join('')
+      : `<div class="card">لا مشاريع محلية بعد — <a href="/workbench">اصنع أول دائرة 🧪</a></div>`) +
+      `<div class="card"><span class="pill amber">☁️ وضع محلي</span><p style="color:var(--muted);font-size:.85rem">اربط Supabase لرؤية دوائر المجتمع العالمي.</p></div>`;
+  } else {
+    (async () => {
+      try {
+        const { data, error } = await supabase.from('projects')
+          .select('*, profiles(username,display_name,avatar_url)')
+          .eq('is_public', true).order('created_at', { ascending: false }).limit(24);
+        if (error) throw error;
+        const { data: all } = await supabase.from('projects').select('forked_from').not('forked_from', 'is', null).eq('is_public', true).limit(500);
+        const forks = {};
+        (all || []).forEach((r) => { forks[r.forked_from] = (forks[r.forked_from] || 0) + 1; });
+        root.innerHTML = (data || []).map((p) => card(p, forks[p.id] || 0)).join('') ||
+          `<div class="card">لا دوائر منشورة بعد — كن أول من يشارك! <a href="/workbench">🧪 المختبر</a></div>`;
+      } catch (e) {
+        root.innerHTML = `<div class="card">❌ تعذر تحميل المجتمع: ${esc(e.message || e)}<br><small style="color:var(--muted)">تأكد من تنفيذ supabase/schema.sql في لوحة Supabase.</small></div>`;
+      }
+    })();
+  }
+</script>
+
+<style>
+  .com-author { display: flex; gap: .6rem; align-items: center; }
+  .com-author img { width: 36px; height: 36px; border-radius: 50%; }
+  .com-author b { display: block; }
+  .com-author small, .com-sum, .prof-card small { color: var(--muted); }
+  .prof-card { display: grid; gap: .5rem; align-content: start; }
+  .prof-actions { display: flex; gap: .45rem; flex-wrap: wrap; }
+  .prof-mini { padding: .4rem .8rem; font-size: .8rem; }
+  .auth-ph { width: 36px; height: 36px; display: grid; place-items: center; background: #16223e; border-radius: 50%; }
+</style>

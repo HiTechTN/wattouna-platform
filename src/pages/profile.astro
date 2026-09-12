@@ -1,0 +1,171 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const SUPA_URL = import.meta.env.PUBLIC_SUPABASE_URL || '';
+const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
+---
+<BaseLayout title="ملفي الشخصي — Wattouna Makers">
+  <div class="container block" style="padding-top:2.5rem">
+    <div class="section-head">
+      <span class="kicker">👤 فضاء الصانع</span>
+      <h2>ملفي الشخصي</h2>
+      <p>هويتك كصانع، أثرك من الطاقة المعاد تدويرها، ودوائرك المحفوظة.</p>
+    </div>
+    <div id="profRoot"><div class="card"><p>⏳ جارٍ التحميل…</p></div></div>
+  </div>
+</BaseLayout>
+
+<script type="module" define:vars={{ SUPA_URL, SUPA_ANON }}>
+  import { createClient } from '/vendor/supabase.js';
+  import { localListProjects } from '/vendor/wb-store.js';
+
+  const isSupabaseConfigured = Boolean(SUPA_URL && SUPA_ANON);
+  let supabase = null;
+  try {
+    if (isSupabaseConfigured) supabase = createClient(SUPA_URL, SUPA_ANON);
+  } catch (e) { supabase = null; }
+
+  const root = document.getElementById('profRoot');
+  const esc = (s) => String(s ?? '').replace(/</g, '&lt;');
+  const fmtDate = (d) => { try { return new Date(d).toLocaleDateString('ar'); } catch (e) { return ''; } };
+  const origin = window.location.origin;
+
+  function projectCard(p, mine) {
+    const st = p.canvas_state || {};
+    const nn = (st.nodes || []).length, nw = (st.wires || []).length;
+    return `<div class="card prof-card">
+      <b>${esc(p.title || 'دارة بدون عنوان')}</b>
+      <small>🧩 ${nn} مكوّنات • 🔌 ${nw} أسلاك • 📅 ${fmtDate(p.created_at)}</small>
+      ${p.forked_from ? `<small>🍴 منسوخة من <a href="/workbench?id=${p.forked_from}">التصميم الأصلي</a></small>` : ''}
+      <div class="prof-actions">
+        <a class="btn btn-cyan prof-mini" href="/workbench?id=${p.id}">فتح في المختبر</a>
+        <button class="btn btn-ghost prof-mini" data-copy="${p.id}">مشاركة الرابط</button>
+        ${mine ? `<button class="btn btn-ghost prof-mini" data-del="${p.id}">🗑️ حذف</button>` : ''}
+      </div>
+    </div>`;
+  }
+
+  function bindCards(scope) {
+    scope.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', async () => {
+      const url = origin + '/workbench?id=' + b.getAttribute('data-copy');
+      try { await navigator.clipboard.writeText(url); b.textContent = '✅ تم النسخ!'; }
+      catch (e) { prompt('انسخ الرابط:', url); }
+      setTimeout(() => { b.textContent = 'مشاركة الرابط'; }, 2000);
+    }));
+  }
+
+  /* ---------- local demo mode ---------- */
+  if (!isSupabaseConfigured || !supabase) {
+    const local = localListProjects();
+    root.innerHTML = `<div class="card"><span class="pill amber">☁️ وضع محلي — اربط Supabase للتفعيل الكامل</span>
+      <p style="color:var(--muted)">مشاريعك محفوظة في هذا المتصفح فقط. انسخ <code dir="ltr">.env.example</code> إلى <code dir="ltr">.env</code> بمفاتيحك.</p></div>
+      <h3>⚡ مشاريع محلية (${local.length})</h3>
+      <div class="grid-3">${local.map((p) => projectCard(p, true)).join('') || '<div class="card">لا مشاريع بعد — <a href="/workbench">ابدأ في المختبر 🧪</a></div>'}</div>`;
+    bindCards(root);
+  } else {
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        root.innerHTML = `<div class="card" style="text-align:center;display:grid;gap:.8rem;justify-items:center">
+          <div style="font-size:2.5rem">🔑</div><h3>سجل الدخول أولًا</h3>
+          <p style="color:var(--muted)">استعمل زر «تسجيل الدخول» في الأعلى (Google أو GitHub).</p>
+          <a class="btn btn-amber" href="/workbench">تجربة المختبر بدون حساب 🧪</a></div>`;
+        return;
+      }
+      const uid = session.user.id;
+      let { data: prof } = await supabase.from('profiles').select('*').eq('id', uid).single();
+      if (!prof) {
+        const meta = session.user.user_metadata || {};
+        const { data } = await supabase.from('profiles').upsert({
+          id: uid,
+          username: meta.user_name || session.user.email.split('@')[0],
+          display_name: meta.full_name || meta.user_name || 'صانع جديد',
+          avatar_url: meta.avatar_url || null,
+        }, { onConflict: 'id' }).select().single();
+        prof = data;
+      }
+      const { count: pubCount } = await supabase.from('projects').select('id', { count: 'exact', head: true }).eq('author_id', uid);
+      const { data: mine } = await supabase.from('projects').select('*').eq('author_id', uid).order('updated_at', { ascending: false });
+      const forked = (mine || []).filter((p) => p.forked_from);
+      const avatar = prof?.avatar_url || session.user.user_metadata?.avatar_url;
+
+      root.innerHTML = `
+        <div class="card prof-id">
+          ${avatar ? `<img src="${esc(avatar)}" alt="" />` : '<span class="prof-ph">⚡</span>'}
+          <div style="flex:1;min-width:220px">
+            <h3 style="margin:0">${esc(prof?.display_name || 'صانع')}</h3>
+            <p style="margin:.2rem 0;color:var(--muted)">
+              <span class="pill cyan">@${esc(prof?.username || '—')}</span>
+              <span class="pill green">${esc(prof?.country_code || 'TN')}</span>
+            </p>
+            <p style="color:var(--muted);font-size:.88rem;margin:.2rem 0">${esc(prof?.bio || 'لا نبذة بعد — عرّف بنفسك!')}</p>
+          </div>
+          <div class="prof-stats">
+            <div class="stat"><b style="color:var(--green)" dir="ltr">${Number(prof?.upcycled_energy_wh || 0)} Wh</b><span>🌱 طاقة معاد تدويرها</span></div>
+            <div class="stat"><b style="color:var(--amber)">${pubCount || 0}</b><span>⚡ مشاريع منشورة</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0">✏️ تعديل الملف</h3>
+          <div class="prof-form">
+            <label>الاسم المعروض<input id="fName" value="${esc(prof?.display_name || '')}" /></label>
+            <label>اسم المستخدم<input id="fUser" dir="ltr" value="${esc(prof?.username || '')}" /></label>
+            <label>البلد<select id="fCountry">${['TN', 'FR', 'DZ', 'DE', 'US'].map((c) => `<option ${prof?.country_code === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+            <label style="grid-column:1/-1">النبذة<textarea id="fBio" rows="2">${esc(prof?.bio || '')}</textarea></label>
+          </div>
+          <div style="display:flex;gap:.6rem;margin-top:.8rem;align-items:center">
+            <button id="saveProf" class="btn btn-amber">💾 حفظ</button><span id="saveMsg" style="font-size:.85rem;color:var(--green)"></span>
+          </div>
+        </div>
+        <div class="tabs" style="margin-top:1.2rem">
+          <button class="tab active" data-tab="my">⚡ مشاريعي (${(mine || []).length})</button>
+          <button class="tab" data-tab="fork">🍴 المنسوخة (${forked.length})</button>
+        </div>
+        <div id="tab-my" class="grid-3" style="margin-top:1rem">${(mine || []).map((p) => projectCard(p, true)).join('') || '<div class="card">لا مشاريع بعد — <a href="/workbench">ابدأ 🧪</a></div>'}</div>
+        <div id="tab-fork" class="grid-3" style="margin-top:1rem" hidden>${forked.map((p) => projectCard(p, true)).join('') || '<div class="card">لم تنسخ أي تصميم بعد — <a href="/community">تصفح المجتمع 🌍</a></div>'}</div>`;
+
+      bindCards(root);
+      root.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => {
+        root.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
+        b.classList.add('active');
+        const my = b.getAttribute('data-tab') === 'my';
+        document.getElementById('tab-my').hidden = !my;
+        document.getElementById('tab-fork').hidden = my;
+      }));
+      document.getElementById('saveProf').addEventListener('click', async () => {
+        const msg = document.getElementById('saveMsg');
+        const { error } = await supabase.from('profiles').update({
+          display_name: document.getElementById('fName').value.trim(),
+          username: document.getElementById('fUser').value.trim().replace(/\s+/g, '_') || prof.username,
+          bio: document.getElementById('fBio').value.trim(),
+          country_code: document.getElementById('fCountry').value,
+        }).eq('id', uid);
+        msg.textContent = error ? '❌ ' + error.message : '✅ تم الحفظ!';
+        if (!error) setTimeout(() => location.reload(), 800);
+      });
+      root.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
+        if (!confirm('حذف هذا المشروع نهائيًا؟')) return;
+        await supabase.from('projects').delete().eq('id', b.getAttribute('data-del'));
+        location.reload();
+      }));
+      if (location.hash === '#my') document.getElementById('tab-my')?.scrollIntoView();
+    })();
+  }
+</script>
+
+<style>
+  .prof-id { display: flex; gap: 1.1rem; align-items: center; flex-wrap: wrap; }
+  .prof-id img { width: 72px; height: 72px; border-radius: 50%; border: 2px solid var(--amber); }
+  .prof-ph { width: 72px; height: 72px; display: grid; place-items: center; font-size: 2rem; background: #16223e; border-radius: 50%; }
+  .prof-stats { display: flex; gap: .7rem; }
+  .prof-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .7rem; }
+  .prof-form label { display: grid; gap: .3rem; font-size: .85rem; font-weight: 700; }
+  .prof-form input, .prof-form select, .prof-form textarea {
+    background: #0a132a; border: 1px solid var(--border); border-radius: 10px;
+    padding: .55rem .7rem; color: var(--text); font-family: inherit; font-size: .9rem;
+  }
+  .prof-card { display: grid; gap: .4rem; align-content: start; }
+  .prof-card small { color: var(--muted); }
+  .prof-actions { display: flex; gap: .45rem; flex-wrap: wrap; }
+  .prof-mini { padding: .4rem .8rem; font-size: .8rem; }
+  @media (max-width: 900px) { .prof-form { grid-template-columns: 1fr; } }
+</style>

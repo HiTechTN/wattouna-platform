@@ -1,0 +1,429 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const SUPA_URL = import.meta.env.PUBLIC_SUPABASE_URL || '';
+const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
+---
+<BaseLayout title="المختبر — لوحة دوائر الصانعين">
+  <div class="container block" style="padding-top:2rem;max-width:1280px">
+    <div class="section-head">
+      <span class="kicker">🧪 مختبر الصانعين — Maker Canvas</span>
+      <h2>ركّب دائرتك بالسحب والتوصيل</h2>
+      <p>أضف المكونات، اسحبها، وانقر طرفًا ثم طرفًا آخر لرسم سلك. <span id="wbCloud" class="pill">…</span></p>
+    </div>
+
+    <div id="wbRemix" class="card wb-remix" hidden></div>
+
+    <!-- Toolbar -->
+    <div class="card wb-tools">
+      <div class="wb-row">
+        <label>🏷️ اسم المشروع <input id="wbTitle" placeholder="مثلًا: PBX-36 نسختي الأولى" /></label>
+        <label>🎨 لون السلك
+          <select id="wbColor">
+            <option value="#ef4444">🔴 أحمر (+)</option>
+            <option value="#94a3b8">⚫ أسود (GND)</option>
+            <option value="#f59e0b">🟠 برتقالي (Latched)</option>
+            <option value="#38bdf8">🔵 أزرق (+12V)</option>
+            <option value="#22c55e">🟢 أخضر (Logic)</option>
+          </select>
+        </label>
+      </div>
+      <div class="wb-row">
+        <button id="wbValidate" class="btn btn-amber wb-btn">🔍 فحص التوصيل</button>
+        <button id="wbSave" class="btn btn-cyan wb-btn">💾 حفظ المشروع</button>
+        <button id="wbShare" class="btn btn-ghost wb-btn">🔗 مشاركة</button>
+        <button id="wbClear" class="btn btn-ghost wb-btn">🧹 مسح</button>
+        <span id="wbMsg" class="wb-msg"></span>
+      </div>
+      <div class="wb-palette" id="wbPalette"></div>
+      <p class="wb-help">🖱️ انقر طرفًا (يلمع) ثم الطرف الثاني لرسم سلك • نقرة مزدوجة / زر يمين على سلك لحذفه • اسحب المكونات من رأسها • يعمل باللمس 📱</p>
+    </div>
+
+    <!-- Canvas -->
+    <div id="wbCanvas" class="wb-canvas">
+      <svg id="wbSvg"></svg>
+      <div id="wbNodes"></div>
+    </div>
+    <div id="wbAlert" class="wb-alert" hidden></div>
+  </div>
+</BaseLayout>
+
+<script type="module" define:vars={{ SUPA_URL, SUPA_ANON }}>
+  import { createClient } from '/vendor/supabase.js';
+  import { localSaveProject, localGetProject, uid } from '/vendor/wb-store.js';
+
+  const isSupabaseConfigured = Boolean(SUPA_URL && SUPA_ANON);
+  let supabase = null;
+  try {
+    if (isSupabaseConfigured) supabase = createClient(SUPA_URL, SUPA_ANON);
+  } catch (e) { supabase = null; }
+
+  const PARTS = {
+    battery: { name: '🔋 Battery 10S', sub: '36V 10.4Ah • XT60', c: '#22c55e',
+      terms: [{ id: 'plus', label: '+36V', net: 'PWR', side: 'r', pos: .3 }, { id: 'gnd', label: 'GND', net: 'GND', side: 'r', pos: .7 }] },
+    mppt: { name: '☀️ LTC3780 MPPT', sub: 'Solar IN • Batt OUT', c: '#f59e0b',
+      terms: [{ id: 'sol+', label: 'S+', net: 'PWR', side: 'l', pos: .3 }, { id: 'sol-', label: 'S-', net: 'GND', side: 'l', pos: .7 },
+              { id: 'out+', label: 'B+', net: 'PWR', side: 'r', pos: .3 }, { id: 'out-', label: 'B-', net: 'GND', side: 'r', pos: .7 }] },
+    latch: { name: '🔌 0.00mA Latch', sub: 'IRF4905 • TL431', c: '#a855f7',
+      terms: [{ id: 'in', label: 'IN+', net: 'PWR', side: 'l', pos: .3 }, { id: 'gate', label: 'GATE', net: 'SIG', side: 'l', pos: .7 },
+              { id: 'out', label: 'OUT+', net: 'PWR', side: 'r', pos: .35 }, { id: 'gnd', label: 'GND', net: 'GND', side: 'r', pos: .7 }] },
+    usb: { name: '⚡ USB-C PD 100W', sub: 'IP2368', c: '#38bdf8',
+      terms: [{ id: 'vin', label: 'V+', net: 'PWR', side: 'l', pos: .35 }, { id: 'gnd', label: 'GND', net: 'GND', side: 'l', pos: .65 },
+              { id: 'usbc', label: 'USB-C', net: 'SIG', side: 'r', pos: .5 }] },
+    buck: { name: '🔽 Buck 12V/10A', sub: 'Vin • Vout', c: '#38bdf8',
+      terms: [{ id: 'vin', label: 'Vin', net: 'PWR', side: 'l', pos: .35 }, { id: 'gnd', label: 'GND', net: 'GND', side: 'l', pos: .65 },
+              { id: 'vout', label: '12V', net: 'PWR', side: 'r', pos: .5 }] },
+    wago: { name: '🔗 WAGO 221', sub: '3-port bus', c: '#eab308',
+      terms: [{ id: 'p1', label: '1', net: 'BUS', side: 'l', pos: .5 }, { id: 'p2', label: '2', net: 'BUS', side: 'r', pos: .3 }, { id: 'p3', label: '3', net: 'BUS', side: 'r', pos: .7 }] },
+    meter: { name: '📟 Voltmeter', sub: 'DC 0-100V', c: '#f43f5e',
+      terms: [{ id: 'v+', label: 'R+', net: 'PWR', side: 'l', pos: .4 }, { id: 'v-', label: 'B-', net: 'GND', side: 'l', pos: .6 }] },
+    button: { name: '🔘 Pushbutton 16mm', sub: 'COM/NO/NC', c: '#94a3b8',
+      terms: [{ id: 'com', label: 'COM', net: 'SIG', side: 'l', pos: .5 }, { id: 'no', label: 'NO', net: 'SIG', side: 'r', pos: .3 }, { id: 'nc', label: 'NC', net: 'SIG', side: 'r', pos: .7 }] },
+  };
+
+  const canvas = document.getElementById('wbCanvas');
+  const svg = document.getElementById('wbSvg');
+  const layer = document.getElementById('wbNodes');
+  const msg = document.getElementById('wbMsg');
+  const alertBox = document.getElementById('wbAlert');
+  const titleInput = document.getElementById('wbTitle');
+  const colorSel = document.getElementById('wbColor');
+  const cloudPill = document.getElementById('wbCloud');
+
+  let state = { nodes: [], wires: [] };
+  let pending = null;       // terminal key awaiting pair
+  let editingId = null;     // loaded project id (own)
+  let forkedFrom = null;    // original id when remixing
+  let dragNode = null, dragDX = 0, dragDY = 0;
+  let session = null;
+
+  const esc = (s) => String(s ?? '').replace(/</g, '&lt;');
+  const termKey = (n, t) => n + ':' + t;
+  function say(t, ok) { msg.textContent = t; msg.style.color = ok === false ? '#fca5a5' : 'var(--green)'; }
+
+  function beep(bad) {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx(), o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = bad ? 160 : 620;
+      g.gain.setValueAtTime(0.08, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + (bad ? 0.5 : 0.2));
+      o.start(); o.stop(ctx.currentTime + (bad ? 0.5 : 0.2));
+    } catch (e) {}
+  }
+
+  /* ---------------- palette ---------------- */
+  const pal = document.getElementById('wbPalette');
+  Object.entries(PARTS).forEach(([type, p]) => {
+    const b = document.createElement('button');
+    b.className = 'wb-part-btn';
+    b.innerHTML = `<b>${esc(p.name)}</b><small>${esc(p.sub)}</small><span>＋ إضافة</span>`;
+    b.style.borderColor = p.c;
+    b.addEventListener('click', () => addNode(type));
+    pal.appendChild(b);
+  });
+
+  function addNode(type, x, y) {
+    const n = layer.clientWidth || 600;
+    state.nodes.push({
+      id: uid(), type,
+      x: x ?? (40 + (state.nodes.length * 60) % (Math.max(n - 220, 100))),
+      y: y ?? (40 + (state.nodes.length * 47) % 380),
+    });
+    render();
+  }
+
+  /* ---------------- render ---------------- */
+  function render() {
+    layer.innerHTML = '';
+    state.nodes.forEach((nd) => {
+      const p = PARTS[nd.type];
+      if (!p) return;
+      const el = document.createElement('div');
+      el.className = 'wb-node';
+      el.style.left = nd.x + 'px';
+      el.style.top = nd.y + 'px';
+      el.style.borderColor = p.c;
+      el.dataset.nid = nd.id;
+      el.innerHTML = `<div class="wb-node-head" style="background:${p.c}22"><b>${esc(p.name)}</b><button data-delnode title="حذف">✕</button></div>
+        <div class="wb-node-sub">${esc(p.sub)}</div>` +
+        p.terms.map((t) => `<button class="wb-term side-${t.side}" data-t="${esc(nd.id)}:${esc(t.id)}" style="${t.side === 'l' ? 'left' : t.side === 'r' ? 'right' : t.side === 't' ? 'top' : 'bottom'}:-7px;${t.side === 'l' || t.side === 'r' ? 'top' : 'left'}:${t.pos * 100}%" title="${esc(t.label)}">${esc(t.label)}</button>`).join('');
+      layer.appendChild(el);
+    });
+    drawWires();
+  }
+
+  function termXY(key) {
+    const el = layer.querySelector(`[data-t="${CSS.escape(key)}"]`);
+    if (!el) return null;
+    const c = canvas.getBoundingClientRect(), r = el.getBoundingClientRect();
+    return { x: r.left - c.left + r.width / 2, y: r.top - c.top + r.height / 2 };
+  }
+
+  function drawWires() {
+    svg.setAttribute('viewBox', `0 0 ${canvas.clientWidth} ${canvas.clientHeight}`);
+    svg.innerHTML = '';
+    state.wires.forEach((w) => {
+      const a = termXY(w.a), b = termXY(w.b);
+      if (!a || !b) return;
+      const dx = Math.max(40, Math.abs(b.x - a.x) / 2);
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', `M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x} ${b.y}`);
+      path.setAttribute('stroke', w.color);
+      path.setAttribute('stroke-width', '3.5');
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke-linecap', 'round');
+      path.dataset.wid = w.id;
+      path.style.cursor = 'pointer';
+      const del = (e) => { e.preventDefault(); e.stopPropagation(); state.wires = state.wires.filter((x) => x.id !== w.id); drawWires(); };
+      path.addEventListener('dblclick', del);
+      path.addEventListener('contextmenu', del);
+      svg.appendChild(path);
+    });
+    // pending highlight
+    layer.querySelectorAll('.wb-term').forEach((el) => {
+      el.classList.toggle('pending', el.getAttribute('data-t') === pending);
+    });
+  }
+
+  /* ---------------- interactions ---------------- */
+  layer.addEventListener('click', (e) => {
+    const del = e.target.closest('[data-delnode]');
+    if (del) {
+      const nid = del.closest('.wb-node').dataset.nid;
+      state.nodes = state.nodes.filter((n) => n.id !== nid);
+      state.wires = state.wires.filter((w) => !w.a.startsWith(nid + ':') && !w.b.startsWith(nid + ':'));
+      render();
+      return;
+    }
+    const term = e.target.closest('.wb-term');
+    if (!term) return;
+    const key = term.getAttribute('data-t');
+    if (!pending) { pending = key; drawWires(); say('اختر الطرف الثاني…'); return; }
+    if (pending === key) { pending = null; drawWires(); return; }
+    state.wires.push({ id: uid(), a: pending, b: key, color: colorSel.value });
+    pending = null;
+    drawWires();
+    say(`سلك جديد (${state.wires.length}) ✅`, true);
+  });
+
+  layer.addEventListener('pointerdown', (e) => {
+    const head = e.target.closest('.wb-node-head');
+    if (!head || e.target.closest('[data-delnode]')) return;
+    const nodeEl = head.closest('.wb-node');
+    const nid = nodeEl.dataset.nid;
+    const nd = state.nodes.find((n) => n.id === nid);
+    if (!nd) return;
+    dragNode = nd;
+    const r = nodeEl.getBoundingClientRect(), c = canvas.getBoundingClientRect();
+    dragDX = e.clientX - r.left;
+    dragDY = e.clientY - r.top;
+    nodeEl.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!dragNode) return;
+    const c = canvas.getBoundingClientRect();
+    dragNode.x = Math.max(0, Math.min(e.clientX - c.left - dragDX, c.width - 120));
+    dragNode.y = Math.max(0, Math.min(e.clientY - c.top - dragDY, c.height - 60));
+    const el = layer.querySelector(`[data-nid="${CSS.escape(dragNode.id)}"]`);
+    if (el) { el.style.left = dragNode.x + 'px'; el.style.top = dragNode.y + 'px'; }
+    drawWires();
+  });
+  window.addEventListener('pointerup', () => { dragNode = null; });
+  window.addEventListener('resize', drawWires);
+
+  /* ---------------- validate (short-circuit check) ---------------- */
+  function nets() {
+    const parent = {};
+    const find = (x) => { parent[x] = parent[x] || x; return parent[x] === x ? x : (parent[x] = find(parent[x])); };
+    const uni = (a, b) => { parent[find(a)] = find(b); };
+    const netOf = {};
+    state.nodes.forEach((nd) => {
+      (PARTS[nd.type]?.terms || []).forEach((t) => { netOf[termKey(nd.id, t.id)] = t.net; parent[termKey(nd.id, t.id)] = termKey(nd.id, t.id); });
+    });
+    // common-bus parts (WAGO): all BUS terminals of one node are internally joined
+    state.nodes.forEach((nd) => {
+      const bus = (PARTS[nd.type]?.terms || []).filter((t) => t.net === 'BUS').map((t) => termKey(nd.id, t.id));
+      for (let i = 1; i < bus.length; i++) uni(bus[0], bus[i]);
+    });
+    state.wires.forEach((w) => { if (netOf[w.a] && netOf[w.b]) uni(w.a, w.b); });
+    const sets = {};
+    Object.keys(netOf).forEach((k) => { const r = find(k); (sets[r] = sets[r] || []).push(k); });
+    return { sets, netOf };
+  }
+
+  document.getElementById('wbValidate').addEventListener('click', () => {
+    const { sets, netOf } = nets();
+    let short = null;
+    for (const [rootK, members] of Object.entries(sets)) {
+      const hasP = members.some((m) => netOf[m] === 'PWR');
+      const hasG = members.some((m) => netOf[m] === 'GND');
+      if (hasP && hasG) { short = members; break; }
+    }
+    alertBox.hidden = false;
+    if (short) {
+      alertBox.className = 'wb-alert bad';
+      alertBox.innerHTML = `⚡ <b>ماس كهربائي!</b> قطب (+) متصل مباشرة بـ GND عبر ${short.length} أطراف. راجع الأسلاك الحمراء/السوداء قبل التشغيل.`;
+      beep(true);
+      say('❌ ماس كهربائي مكتشف!', false);
+    } else {
+      const floating = Object.values(netOf).filter((n, i, arr) => n === 'PWR').length;
+      alertBox.className = 'wb-alert ok';
+      alertBox.innerHTML = `✅ لا ماس مكتشف — ${state.wires.length} سلك، ${state.nodes.length} مكوّنات. تحقق دائمًا بالملتيميتر قبل التغذية الحقيقية.`;
+      beep(false);
+      say('✅ الدارة سليمة ظاهريًا', true);
+    }
+    setTimeout(() => { alertBox.hidden = true; }, 7000);
+  });
+
+  /* ---------------- save / share / load ---------------- */
+  async function cloudSession() {
+    if (!isSupabaseConfigured || !supabase) return null;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      return session;
+    } catch (e) { return null; }
+  }
+
+  document.getElementById('wbSave').addEventListener('click', async () => {
+    const title = titleInput.value.trim() || 'دارة بدون عنوان';
+    if (!state.nodes.length) { say('أضف مكونًا أولًا!', false); return; }
+    say('⏳ جارٍ الحفظ…');
+    const s = await cloudSession();
+    if (s && supabase) {
+      try {
+        const mine = editingId ? (await supabase.from('projects').select('id').eq('id', editingId).eq('author_id', s.user.id).single()).data : null;
+        const payload = { title, description: `${state.nodes.length} components, ${state.wires.length} wires`, canvas_state: state, is_public: true };
+        let id = editingId;
+        if (mine) {
+          const { error } = await supabase.from('projects').update(payload).eq('id', editingId);
+          if (error) throw error;
+        } else {
+          const { data, error } = await supabase.from('projects').insert({ ...payload, author_id: s.user.id, forked_from: forkedFrom }).select('id').single();
+          if (error) throw error;
+          id = data.id;
+          editingId = id;
+          try {
+            const { data: prof } = await supabase.from('profiles').select('upcycled_energy_wh').eq('id', s.user.id).single();
+            await supabase.from('profiles').update({ upcycled_energy_wh: Number(prof?.upcycled_energy_wh || 0) + 336 }).eq('id', s.user.id);
+          } catch (e) {}
+        }
+        say('✅ حُفظ في السحابة! +336Wh 🌱', true);
+        history.replaceState(null, '', '/workbench?id=' + id);
+        return;
+      } catch (e) { say('❌ ' + (e.message || e), false); return; }
+    }
+    const p = { id: editingId || uid(), title, description: '', canvas_state: state, forked_from: forkedFrom, author_name: 'محلي', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    localSaveProject(p);
+    editingId = p.id;
+    history.replaceState(null, '', '/workbench?id=' + p.id);
+    say('✅ حُفظ محليًا (اربط Supabase للسحابة)', true);
+  });
+
+  document.getElementById('wbShare').addEventListener('click', async () => {
+    if (!editingId) { say('احفظ المشروع أولًا لمشاركته!', false); return; }
+    const url = window.location.origin + '/workbench?id=' + editingId;
+    try { await navigator.clipboard.writeText(url); say('✅ نُسخ رابط المشاركة!', true); }
+    catch (e) { prompt('انسخ الرابط:', url); }
+  });
+
+  document.getElementById('wbClear').addEventListener('click', () => {
+    if (!state.nodes.length || confirm('مسح اللوحة بالكامل؟')) {
+      state = { nodes: [], wires: [] };
+      editingId = null; forkedFrom = null;
+      history.replaceState(null, '', '/workbench');
+      document.getElementById('wbRemix').hidden = true;
+      render();
+      say('لوحة فارغة — أضف مكونات 🧩');
+    }
+  });
+
+  /* ---------------- load (?id= / ?fork=) ---------------- */
+  async function loadById(id) {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase.from('projects').select('*, profiles(username,display_name)').eq('id', id).single();
+        if (error) throw error;
+        return { ...data, author_name: data.profiles?.display_name || data.profiles?.username || 'صانع' };
+      } catch (e) {}
+    }
+    return localGetProject(id);
+  }
+
+  (async function init() {
+    cloudPill.textContent = (isSupabaseConfigured && supabase) ? '☁️ السحابة مفعّلة' : '💾 وضع محلي';
+    cloudPill.className = 'pill ' + ((isSupabaseConfigured && supabase) ? 'green' : 'amber');
+    const q = new URLSearchParams(location.search);
+    const loadId = q.get('id') || q.get('fork');
+    const isFork = q.has('fork');
+    if (loadId) {
+      const p = await loadById(loadId);
+      if (p?.canvas_state?.nodes) {
+        state = p.canvas_state;
+        titleInput.value = (isFork ? 'Remix of ' : '') + (p.title || '');
+        const s = await cloudSession();
+        const own = s && p.author_id && p.author_id === s.user.id && !isFork;
+        const box = document.getElementById('wbRemix');
+        if (own) {
+          editingId = p.id;
+          box.hidden = true;
+        } else {
+          forkedFrom = p.id;
+          box.hidden = false;
+          box.innerHTML = `🍴 تصميم <b>${esc(p.title || '')}</b> للصانع <b>${esc(p.author_name || '')}</b> — عدّل بحرية ثم احفظ لينُشر كنسخة (Remix) باسمك.`;
+        }
+        render();
+        say(`📂 تم تحميل «${p.title || ''}»`, true);
+        return;
+      }
+      say('تعذر تحميل المشروع — تحقق من الرابط', false);
+    }
+    // starter demo: battery -> latch -> buck
+    addNode('battery', 40, 80);
+    addNode('latch', 260, 80);
+    addNode('buck', 490, 80);
+    state.wires.push(
+      { id: uid(), a: state.nodes[0].id + ':plus', b: state.nodes[1].id + ':in', color: '#ef4444' },
+      { id: uid(), a: state.nodes[0].id + ':gnd', b: state.nodes[1].id + ':gnd', color: '#94a3b8' },
+      { id: uid(), a: state.nodes[1].id + ':out', b: state.nodes[2].id + ':vin', color: '#f59e0b' },
+    );
+    titleInput.value = 'PBX-36 starter';
+    render();
+  })();
+</script>
+
+<style>
+  .wb-tools { display: grid; gap: .8rem; margin-bottom: 1rem; }
+  .wb-row { display: flex; gap: .8rem; flex-wrap: wrap; align-items: end; }
+  .wb-row label { display: grid; gap: .3rem; font-size: .85rem; font-weight: 700; flex: 1; min-width: 200px; }
+  .wb-row input, .wb-row select { background: #0a132a; border: 1px solid var(--border); border-radius: 10px; padding: .55rem .7rem; color: var(--text); font-family: inherit; }
+  .wb-btn { padding: .55rem 1rem; font-size: .88rem; }
+  .wb-msg { font-size: .85rem; align-self: center; }
+  .wb-palette { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .3rem; }
+  .wb-part-btn { flex: none; background: #0a132a; border: 1px solid var(--border); border-radius: 12px; padding: .5rem .8rem; color: var(--text); font-family: inherit; cursor: pointer; display: grid; gap: .1rem; text-align: right; }
+  .wb-part-btn b { font-size: .82rem; }
+  .wb-part-btn small { color: var(--muted); font-size: .72rem; }
+  .wb-part-btn span { color: var(--green); font-size: .75rem; font-weight: 700; }
+  .wb-help { margin: 0; color: var(--muted); font-size: .8rem; }
+  .wb-canvas { position: relative; height: 560px; background: radial-gradient(circle at 1px 1px, #1f3152 1px, transparent 1px) 0 0/22px 22px, #080f22; border: 1px solid var(--border); border-radius: 18px; overflow: hidden; touch-action: none; }
+  #wbSvg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #wbNodes { position: absolute; inset: 0; }
+  .wb-node { position: absolute; width: 168px; background: var(--card); border: 1.5px solid var(--cyan); border-radius: 12px; font-size: .8rem; }
+  .wb-node-head { display: flex; justify-content: space-between; align-items: center; gap: .4rem; padding: .35rem .55rem; border-radius: 10px 10px 0 0; cursor: grab; touch-action: none; }
+  .wb-node-head:active { cursor: grabbing; }
+  .wb-node-head b { font-size: .78rem; }
+  .wb-node-head button { background: transparent; border: none; color: var(--muted); cursor: pointer; }
+  .wb-node-sub { padding: .2rem .55rem .45rem; color: var(--muted); font-size: .72rem; }
+  .wb-term { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; background: #0a132a; border: 2px solid var(--cyan); color: var(--text); font-size: .58rem; cursor: pointer; font-family: inherit; padding: 0; }
+  .wb-term.side-l { transform: translate(-50%, -50%); }
+  .wb-term.side-r { transform: translate(50%, -50%); }
+  .wb-term.pending { border-color: var(--amber); box-shadow: 0 0 12px var(--amber); animation: wai-blink 1s infinite; }
+  .wb-remix { border-color: rgba(245,158,11,.5); margin-bottom: 1rem; }
+  .wb-remix[hidden] { display: none; }
+  .wb-alert { margin-top: 1rem; border-radius: 14px; padding: .8rem 1.1rem; font-size: .92rem; }
+  .wb-alert[hidden] { display: none; }
+  .wb-alert.ok { background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.5); }
+  .wb-alert.bad { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.5); animation: wai-blink .5s 6; }
+</style>

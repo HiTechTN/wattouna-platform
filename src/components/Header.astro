@@ -1,28 +1,160 @@
 ---
+const SUPA_URL = import.meta.env.PUBLIC_SUPABASE_URL || '';
+const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 ---
 <header class="site-header">
   <div class="container nav">
-    <a href="#" class="brand" aria-label="Wattouna home" style="text-decoration:none">
+    <a href="/" class="brand" aria-label="Wattouna home" style="text-decoration:none">
       <span class="brand-mark">⚡</span>
       <span>واطُنا <span style="color:var(--amber)">Wattouna</span><small>OPEN CLEAN ENERGY • طاقة مفتوحة</small></span>
     </a>
     <nav class="nav-links" id="navLinks" aria-label="Primary">
-      <a href="#hero">الرئيسية</a>
-      <a href="#calculator">حاسبة الاستقلالية</a>
-      <a href="#model3d">النموذج ثلاثي الأبعاد</a>
-      <a href="#guide">دليل التجميع</a>
-      <a href="#bom">قائمة المكونات</a>
-      <a href="#sourcing">📡 رادار التوريد</a>
+      <a href="/#hero">الرئيسية</a>
+      <a href="/#calculator">حاسبة الاستقلالية</a>
+      <a href="/#model3d">النموذج ثلاثي الأبعاد</a>
+      <a href="/#guide">دليل التجميع</a>
+      <a href="/#bom">قائمة المكونات</a>
+      <a href="/#sourcing">📡 رادار التوريد</a>
+      <a href="/workbench">🧪 المختبر</a>
+      <a href="/community">🌍 المجتمع</a>
     </nav>
     <div class="nav-cta">
-      <a href="#calculator" class="btn btn-amber" style="padding:.5rem 1rem">⚡ جرّب الحاسبة</a>
+      <span id="authArea" class="auth-area"><span class="pill">…</span></span>
       <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">☰</button>
     </div>
   </div>
 </header>
-<script>
+
+<!-- Auth modal -->
+<div id="authModal" class="auth-modal" hidden>
+  <div class="auth-card card" role="dialog" aria-label="تسجيل الدخول">
+    <button id="authClose" class="auth-x" aria-label="إغلاق">✕</button>
+    <h3 style="margin-top:0">🔑 تسجيل الدخول للصانعين</h3>
+    <p style="color:var(--muted);font-size:.88rem">احفظ دوائرك في السحابة، انسخ تصاميم المجتمع، واجمع نقاط الطاقة المعاد تدويرها.</p>
+    <div id="authErr" class="auth-err" hidden></div>
+    <button id="authGoogle" class="btn btn-ghost auth-provider">🔵 المتابعة عبر Google</button>
+    <button id="authGithub" class="btn btn-ghost auth-provider">⚫ المتابعة عبر GitHub</button>
+    <p id="authDemo" style="color:var(--muted);font-size:.8rem" hidden>☁️ السحابة غير مربوطة بعد (وضع محلي) — أضف مفاتيح Supabase للتفعيل.</p>
+  </div>
+</div>
+
+<script type="module" define:vars={{ SUPA_URL, SUPA_ANON }}>
+  import { createClient } from '/vendor/supabase.js';
+
+  const isSupabaseConfigured = Boolean(SUPA_URL && SUPA_ANON);
+  let supabase = null;
+  try {
+    if (isSupabaseConfigured) supabase = createClient(SUPA_URL, SUPA_ANON);
+  } catch (e) { supabase = null; }
+
   const t = document.getElementById('menuToggle');
   const l = document.getElementById('navLinks');
   t?.addEventListener('click', () => l?.classList.toggle('open'));
   l?.querySelectorAll('a').forEach(a => a.addEventListener('click', () => l.classList.remove('open')));
+
+  const area = document.getElementById('authArea');
+  const modal = document.getElementById('authModal');
+
+  function esc(s) { return String(s ?? '').replace(/</g, '&lt;'); }
+
+  function renderLoggedOut(demo) {
+    area.innerHTML =
+      (demo ? '<span class="pill" title="Supabase غير مربوط">☁️ محلي</span>' : '') +
+      '<button id="loginBtn" class="btn btn-amber" style="padding:.5rem 1rem">تسجيل الدخول</button>';
+    document.getElementById('loginBtn')?.addEventListener('click', () => { modal.hidden = false; });
+  }
+
+  function renderUser(user, profile) {
+    const name = profile?.username || profile?.display_name || user.email?.split('@')[0] || 'صانع';
+    const avatar = profile?.avatar_url || user.user_metadata?.avatar_url;
+    area.innerHTML =
+      '<div class="auth-user">' +
+        (avatar ? `<img src="${esc(avatar)}" alt="" />` : '<span class="auth-ph">⚡</span>') +
+        `<b>${esc(name)}</b>` +
+        '<button id="userMenuBtn" aria-label="القائمة">▾</button>' +
+        '<div id="userMenu" class="auth-menu" hidden>' +
+          '<a href="/profile">👤 ملفي الشخصي</a>' +
+          '<a href="/profile#my">⚡ مشاريعي</a>' +
+          '<button id="logoutBtn">🚪 تسجيل الخروج</button>' +
+        '</div>' +
+      '</div>';
+    const menu = document.getElementById('userMenu');
+    document.getElementById('userMenuBtn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.hidden = !menu.hidden;
+    });
+    document.addEventListener('click', () => { if (menu) menu.hidden = true; });
+    document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+      try { await supabase?.auth.signOut(); } catch (e) {}
+      location.reload();
+    });
+  }
+
+  async function oauth(provider) {
+    const err = document.getElementById('authErr');
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: window.location.origin + '/profile' },
+      });
+      if (error) throw error;
+    } catch (e) {
+      err.textContent = 'تعذر تسجيل الدخول: ' + (e?.message || e);
+      err.hidden = false;
+    }
+  }
+
+  document.getElementById('authClose')?.addEventListener('click', () => { modal.hidden = true; });
+  modal?.addEventListener('click', (e) => { if (e.target === modal) modal.hidden = true; });
+  document.getElementById('authGoogle')?.addEventListener('click', () => oauth('google'));
+  document.getElementById('authGithub')?.addEventListener('click', () => oauth('github'));
+
+  (async function init() {
+    if (!isSupabaseConfigured || !supabase) {
+      renderLoggedOut(true);
+      document.getElementById('authDemo').hidden = false;
+      const g = document.getElementById('authGoogle');
+      const h = document.getElementById('authGithub');
+      if (g) g.setAttribute('disabled', 'true');
+      if (h) h.setAttribute('disabled', 'true');
+      return;
+    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) { renderLoggedOut(false); return; }
+      let profile = null;
+      try {
+        const r = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+        profile = r.data || null;
+      } catch (e) {}
+      renderUser(session.user, profile);
+      window.dispatchEvent(new CustomEvent('wattouna:auth', { detail: { user: session.user, profile } }));
+    } catch (e) {
+      renderLoggedOut(false);
+    }
+    supabase.auth.onAuthStateChange((_ev, session) => {
+      window.dispatchEvent(new CustomEvent('wattouna:auth', { detail: { user: session?.user || null } }));
+    });
+  })();
 </script>
+
+<style>
+  .auth-area { display: flex; align-items: center; gap: .5rem; }
+  .auth-user { display: flex; align-items: center; gap: .5rem; position: relative; background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: .25rem .6rem .25rem .3rem; }
+  .auth-user img { width: 28px; height: 28px; border-radius: 50%; }
+  .auth-ph { width: 28px; height: 28px; display: grid; place-items: center; background: #16223e; border-radius: 50%; }
+  .auth-user b { font-size: .82rem; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .auth-user button { background: transparent; border: none; color: var(--text); cursor: pointer; }
+  .auth-menu { position: absolute; top: 110%; inset-inline-end: 0; background: var(--card); border: 1px solid var(--border); border-radius: 12px; min-width: 170px; display: grid; padding: .4rem; z-index: 60; }
+  .auth-menu[hidden] { display: none; }
+  .auth-menu a, .auth-menu button { padding: .5rem .7rem; border-radius: 8px; font-size: .85rem; color: var(--text); background: transparent; border: none; text-align: right; cursor: pointer; font-family: inherit; }
+  .auth-menu a:hover, .auth-menu button:hover { background: #16223e; text-decoration: none; }
+  .auth-modal { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.6); display: grid; place-items: center; padding: 1rem; }
+  .auth-modal[hidden] { display: none; }
+  .auth-card { width: min(400px, 94vw); position: relative; display: grid; gap: .6rem; }
+  .auth-x { position: absolute; top: .7rem; inset-inline-end: .7rem; background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: 8px; cursor: pointer; padding: .2rem .5rem; }
+  .auth-provider { width: 100%; }
+  .auth-provider[disabled] { opacity: .45; cursor: not-allowed; }
+  .auth-err { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.4); color: #fca5a5; border-radius: 10px; padding: .5rem .8rem; font-size: .85rem; }
+  .auth-err[hidden] { display: none; }
+</style>
