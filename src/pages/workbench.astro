@@ -50,6 +50,7 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 <script type="module" define:vars={{ SUPA_URL, SUPA_ANON }}>
   import { createClient } from '/vendor/supabase.js';
   import { localSaveProject, localGetProject, uid } from '/vendor/wb-store.js';
+  import { renderPart } from '/vendor/hardware-graphics.js';
 
   const isSupabaseConfigured = Boolean(SUPA_URL && SUPA_ANON);
   let supabase = null;
@@ -147,6 +148,7 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
       el.style.borderColor = p.c;
       el.dataset.nid = nd.id;
       el.innerHTML = `<div class="wb-node-head" style="background:${p.c}22"><b>${esc(p.name)}</b><button data-delnode title="حذف">✕</button></div>
+        <div class="wb-node-graphic">${renderPart(nd.type, nd.id.replace(/[^a-z0-9]/gi, ''))}</div>
         <div class="wb-node-sub">${esc(p.sub)}</div>` +
         p.terms.map((t) => `<button class="wb-term side-${t.side}" data-t="${esc(nd.id)}:${esc(t.id)}" style="${t.side === 'l' ? 'left' : t.side === 'r' ? 'right' : t.side === 't' ? 'top' : 'bottom'}:-7px;${t.side === 'l' || t.side === 'r' ? 'top' : 'left'}:${t.pos * 100}%" title="${esc(t.label)}">${esc(t.label)}</button>`).join('');
       layer.appendChild(el);
@@ -180,6 +182,17 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
       path.addEventListener('dblclick', del);
       path.addEventListener('contextmenu', del);
       svg.appendChild(path);
+    });
+    // live voltmeters: powered v+ shows bus voltage, floating shows --.-
+    const live = new Set();
+    state.wires.forEach((w) => { live.add(w.a); live.add(w.b); });
+    state.nodes.forEach((nd) => {
+      if (nd.type !== 'meter') return;
+      const on = live.has(nd.id + ':v+');
+      layer.querySelectorAll(`[data-nid="${CSS.escape(nd.id)}"] .wb-volt`).forEach((t) => {
+        t.textContent = on ? '36.0' : '--.-';
+        t.setAttribute('fill', on ? '#ef4444' : '#7f1d1d');
+      });
     });
     // pending highlight
     layer.querySelectorAll('.wb-term').forEach((el) => {
@@ -398,25 +411,30 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   .wb-tools { display: grid; gap: .8rem; margin-bottom: 1rem; }
   .wb-row { display: flex; gap: .8rem; flex-wrap: wrap; align-items: end; }
   .wb-row label { display: grid; gap: .3rem; font-size: .85rem; font-weight: 700; flex: 1; min-width: 200px; }
-  .wb-row input, .wb-row select { background: #0a132a; border: 1px solid var(--border); border-radius: 10px; padding: .55rem .7rem; color: var(--text); font-family: inherit; }
+  .wb-row input, .wb-row select { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: .55rem .7rem; color: var(--text); font-family: inherit; }
   .wb-btn { padding: .55rem 1rem; font-size: .88rem; }
   .wb-msg { font-size: .85rem; align-self: center; }
   .wb-palette { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .3rem; }
-  .wb-part-btn { flex: none; background: #0a132a; border: 1px solid var(--border); border-radius: 12px; padding: .5rem .8rem; color: var(--text); font-family: inherit; cursor: pointer; display: grid; gap: .1rem; text-align: right; }
+  .wb-part-btn { flex: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: .5rem .8rem; color: var(--text); font-family: inherit; cursor: pointer; display: grid; gap: .1rem; text-align: right; }
   .wb-part-btn b { font-size: .82rem; }
   .wb-part-btn small { color: var(--muted); font-size: .72rem; }
   .wb-part-btn span { color: var(--green); font-size: .75rem; font-weight: 700; }
   .wb-help { margin: 0; color: var(--muted); font-size: .8rem; }
-  .wb-canvas { position: relative; height: 560px; background: radial-gradient(circle at 1px 1px, #1f3152 1px, transparent 1px) 0 0/22px 22px, #080f22; border: 1px solid var(--border); border-radius: 18px; overflow: hidden; touch-action: none; }
+  .wb-canvas { position: relative; height: 560px; background: radial-gradient(circle at 1px 1px, #1f3152 1px, transparent 1px) 0 0/22px 22px, var(--canvas); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; touch-action: none; }
   #wbSvg { position: absolute; inset: 0; width: 100%; height: 100%; }
   #wbNodes { position: absolute; inset: 0; }
-  .wb-node { position: absolute; width: 168px; background: var(--card); border: 1.5px solid var(--cyan); border-radius: 12px; font-size: .8rem; }
+  .wb-node { position: absolute; width: 184px; background: var(--card); border: 1.5px solid var(--cyan); border-radius: 12px; font-size: .8rem; box-shadow: 0 10px 28px rgba(0,0,0,.5); }
   .wb-node-head { display: flex; justify-content: space-between; align-items: center; gap: .4rem; padding: .35rem .55rem; border-radius: 10px 10px 0 0; cursor: grab; touch-action: none; }
   .wb-node-head:active { cursor: grabbing; }
   .wb-node-head b { font-size: .78rem; }
   .wb-node-head button { background: transparent; border: none; color: var(--muted); cursor: pointer; }
   .wb-node-sub { padding: .2rem .55rem .45rem; color: var(--muted); font-size: .72rem; }
-  .wb-term { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; background: #0a132a; border: 2px solid var(--cyan); color: var(--text); font-size: .58rem; cursor: pointer; font-family: inherit; padding: 0; }
+  .wb-node-graphic { padding: .15rem .3rem 0; }
+  .wb-node-graphic svg { display: block; border-radius: 8px; background: linear-gradient(180deg, rgba(255,255,255,.03), transparent); }
+  .wb-term { position: absolute; transform: translate(-50%, -50%); width: 15px; height: 15px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #e2e8f0, #475569); border: 2px solid var(--cyan); cursor: pointer; font-family: inherit; padding: 0; font-size: 0; box-shadow: 0 0 6px rgba(56,189,248,.7); }
+  .wb-term::after { content: attr(title); position: absolute; bottom: 130%; inset-inline-start: 50%; transform: translateX(50%); background: var(--ink); border: 1px solid var(--border); color: var(--text); font-size: .62rem; padding: .1rem .4rem; border-radius: 6px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s; }
+  [dir="ltr"] .wb-term::after { transform: translateX(-50%); }
+  .wb-term:hover::after { opacity: 1; }
   .wb-term.side-l { transform: translate(-50%, -50%); }
   .wb-term.side-r { transform: translate(50%, -50%); }
   .wb-term.pending { border-color: var(--amber); box-shadow: 0 0 12px var(--amber); animation: wai-blink 1s infinite; }
@@ -426,4 +444,9 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   .wb-alert[hidden] { display: none; }
   .wb-alert.ok { background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.5); }
   .wb-alert.bad { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.5); animation: wai-blink .5s 6; }
+  @media (max-width: 640px) {
+    .wb-canvas { height: 480px; }
+    .wb-node { width: 160px; }
+    .wb-btn { font-size: .8rem; padding: .5rem .8rem; }
+  }
 </style>

@@ -1,0 +1,83 @@
+---
+const steps = [
+  {
+    n: 1, title: 'بطارية السكوتر 10S + ضفيرة XT60', diff: 'سهلة 🟢', diffCls: 'green',
+    body: 'فكك بطارية سكوتر مستعملة (36V اسمية / 42V مشحونة)، احتفظ بخلايا 10S السليمة فوق 3.0V، وثبّت فيوز 30A على الموجب مع ضفيرة XT60.',
+    parts: [['🔋', 'بك 10S'], ['🔌', 'فيوز 30A'], ['🔗', 'XT60']],
+    tips: ['ارفض أي خلية منتفخة أو تحت 3.0V', 'ثبّت الفيوز مباشرة على القطب الموجب'],
+    art: `<rect x="14" y="26" width="84" height="48" rx="6" fill="#1d4ed8" stroke="#0c1a3a" stroke-width="2"/><line x1="42" y1="28" x2="42" y2="72" stroke="#0c1a3a" stroke-width="2"/><rect x="104" y="40" width="22" height="20" rx="3" fill="#facc15" stroke="#a16207" stroke-width="2"/><rect x="132" y="34" width="12" height="32" rx="3" fill="#38bdf8" stroke="#0c4a6e" stroke-width="2"/><line x1="138" y1="40" x2="138" y2="60" stroke="#082f49" stroke-width="2"/><path d="M 118 78 l 6 12 l 12 -14" fill="none" stroke="#22c55e" stroke-width="4" stroke-linecap="round"/>`,
+  },
+  {
+    n: 2, title: 'دائرة الإغلاق الذاتي 0.00mA', diff: 'تحتاج دقة 🟡', diffCls: 'amber',
+    body: 'ركّب P-MOSFET (IRF4905) مع مرجع TL431 مضبوط على 31.00V. زر ON لحظي يُمسك الدارة، وعند هبوط الجهد تفصل فيزيائيًا بسحب 0.00mA.',
+    parts: [['⬛', 'IRF4905'], ['🔵', 'TL431'], ['🟢', 'زر START']],
+    tips: ['عاير العتبة على 31.00V بمصدر متغير', 'تحقق 0.00mA بالملتيميتر بعد الفصل'],
+    art: `<rect x="20" y="18" width="30" height="44" rx="3" fill="#0f172a" stroke="#000" stroke-width="2"/><rect x="20" y="18" width="30" height="10" fill="#94a3b8"/><line x1="27" y1="62" x2="27" y2="76" stroke="#cbd5e1" stroke-width="4"/><line x1="35" y1="62" x2="35" y2="76" stroke="#cbd5e1" stroke-width="4"/><line x1="43" y1="62" x2="43" y2="76" stroke="#cbd5e1" stroke-width="4"/><path d="M 55 30 C 80 30, 80 50, 105 50" fill="none" stroke="#ef4444" stroke-width="3"/><path d="M 55 55 C 80 55, 80 65, 105 65" fill="none" stroke="#a855f7" stroke-width="3"/><path d="M 55 70 C 90 70, 90 78, 120 78" fill="none" stroke="#f59e0b" stroke-width="3"/><circle cx="118" cy="50" r="8" fill="none" stroke="#38bdf8" stroke-width="2"/><text x="112" y="53" font-size="7" fill="#7dd3fc">431</text>`,
+  },
+  {
+    n: 3, title: 'شحن MPPT الرافع (18V ← 42V)', diff: 'متوسطة 🟡', diffCls: 'amber',
+    body: 'اربط اللوح (حتى 160W) بوحدة LTC3780 واضبط الخرج على 42.0V بدون حمل أولًا، ثم وصّل البطارية. الكفاءة ~90%.',
+    parts: [['☀️', 'لوح 160W'], ['🔷', 'LTC3780'], ['🔩', 'مفك معايرة']],
+    tips: ['42.0V بدون حمل قبل التوصيل', 'تيار الشحن ≤ 0.5C للخلايا المعاد تدويرها'],
+    art: `<circle cx="34" cy="30" r="14" fill="#fbbf24"/><g stroke="#f59e0b" stroke-width="2"><line x1="34" y1="8" x2="34" y2="12"/><line x1="12" y1="30" x2="16" y2="30"/><line x1="52" y1="30" x2="56" y2="30"/></g><rect x="58" y="18" width="52" height="48" rx="4" fill="#1e40af" stroke="#0b1e4b" stroke-width="2"/><rect x="64" y="24" width="40" height="8" rx="2" fill="#94a3b8"/><circle cx="98" cy="52" r="5" fill="#2563eb" stroke="#172554"/><line x1="30" y1="66" x2="30" y2="74" stroke="#92400e" stroke-width="5"/><line x1="24" y1="70" x2="36" y2="70" stroke="#451a03" stroke-width="4"/><text x="62" y="62" font-size="8" fill="#dbeafe">42.0V ✓</text>`,
+  },
+  {
+    n: 4, title: 'تركيب الواجهة والمخارج', diff: 'سهلة 🟢', diffCls: 'green',
+    body: 'ثبّت اللوحة الأمامية (أزرار 16mm، شاشة 45×26، USB، XT60، سوكيت 220V) ثم وزّع المخارج: USB-C PD 100W + 12V/10A + إنفرتر.',
+    parts: [['🖥️', 'واجهة مطبوعة'], ['⚡', 'IP2368'], ['🔽', 'Buck 12V']],
+    tips: ['IP2368 للابتوب + 18W للهاتف', 'الإنفرتر للتلفزة فقط عند الحاجة'],
+    art: `<rect x="14" y="16" width="90" height="60" rx="5" fill="#1e293b" stroke="#000" stroke-width="2"/><circle cx="32" cy="34" r="7" fill="none" stroke="#22c55e" stroke-width="3"/><circle cx="56" cy="34" r="7" fill="none" stroke="#ef4444" stroke-width="3"/><rect x="72" y="28" width="24" height="12" rx="2" fill="#000" stroke="#ef4444"/><rect x="30" y="52" width="28" height="10" rx="2" fill="#94a3b8"/><path d="M 112 46 l 34 0 m 0 0 l -8 -6 m 8 6 l -8 6" stroke="#f59e0b" stroke-width="3" fill="none" stroke-linecap="round"/><rect x="148" y="30" width="14" height="32" rx="3" fill="#0f172a" stroke="#38bdf8"/>`,
+  },
+  {
+    n: 5, title: 'فحوصات الأمان قبل التشغيل', diff: 'فحص دقيق 🟠', diffCls: 'amber',
+    body: 'شدّ كل WAGO 221، تحقق من القطبية، قِس كل مخرج، اختبر الفصل عند 31.00V ثم الشحن الكامل حتى 42V. قِس مرتين، شغّل مرة.',
+    parts: [['📟', 'ملتيميتر'], ['🟠', 'WAGO 221'], ['✅', 'قائمة فحص']],
+    tips: ['قطبية ± ، فيوز 30A، عتبة 31V، خرج 42V', 'وثّق قراءاتك وشاركها مع المجتمع'],
+    art: `<rect x="30" y="20" width="70" height="40" rx="5" fill="#000" stroke="#334155" stroke-width="2"/><text x="65" y="50" font-size="20" text-anchor="middle" fill="#ef4444" font-family="monospace" font-weight="bold">36.0</text><circle cx="126" cy="40" r="20" fill="none" stroke="#22c55e" stroke-width="4"/><path d="M 117 40 l 7 8 l 13 -16" fill="none" stroke="#22c55e" stroke-width="4" stroke-linecap="round"/><text x="30" y="74" font-size="8" fill="#94a3b8">mA: 0.00 ✓</text>`,
+  },
+];
+---
+<div class="asm-timeline">
+  {steps.map((s) => (
+    <article class="card asm-card">
+      <div class="asm-art" aria-hidden="true">
+        <svg viewBox="0 0 168 104" width="100%" height="120" set:html={s.art} />
+        <span class="asm-num">{s.n}</span>
+      </div>
+      <div class="asm-body">
+        <div class="asm-tags"><span class={`pill ${s.diffCls}`}>{s.diff} :صعوبة الخطوة</span></div>
+        <h3>{s.title}</h3>
+        <p>{s.body}</p>
+        <div class="asm-parts"><b>القطع المطلوبة:</b>
+          {s.parts.map(([icon, name]) => (<span class="asm-part"><i>{icon}</i>{name}</span>))}
+        </div>
+        <details class="asm-tips"><summary>🧰 نقاط التنفيذ</summary>
+          <ul>{s.tips.map((t) => (<li>{t}</li>))}</ul>
+        </details>
+      </div>
+    </article>
+  ))}
+</div>
+
+<style>
+  .asm-timeline { display: grid; gap: 1rem; }
+  .asm-card { display: grid; grid-template-columns: 220px 1fr; gap: 1.1rem; align-items: start; padding: 1.1rem; }
+  .asm-art { position: relative; background: linear-gradient(180deg, var(--surface2), var(--canvas)); border: 1px solid var(--border); border-radius: 12px; padding: .4rem; }
+  .asm-art svg { display: block; }
+  .asm-num {
+    position: absolute; top: -10px; inset-inline-start: -10px;
+    width: 30px; height: 30px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--amber), #ea580c); color: #1a1000;
+    font-weight: 800; border-radius: 50%; font-size: .95rem;
+  }
+  .asm-body h3 { margin: .2rem 0 .4rem; font-size: 1.08rem; }
+  .asm-body p { margin: 0 0 .6rem; color: var(--muted); font-size: .92rem; }
+  .asm-tags { display: flex; gap: .4rem; }
+  .asm-parts { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; font-size: .85rem; margin-bottom: .5rem; }
+  .asm-part { display: inline-flex; gap: .35rem; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: .3rem .6rem; }
+  .asm-part i { font-style: normal; font-size: 1.05rem; }
+  .asm-tips { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: .4rem .8rem; font-size: .88rem; }
+  .asm-tips summary { cursor: pointer; font-weight: 700; }
+  .asm-tips ul { margin: .4rem 0; padding-inline-start: 1.2rem; color: var(--muted); }
+  @media (max-width: 700px) { .asm-card { grid-template-columns: 1fr; } }
+</style>

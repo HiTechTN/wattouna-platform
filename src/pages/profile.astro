@@ -67,8 +67,18 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
       if (!session?.user) {
         root.innerHTML = `<div class="card" style="text-align:center;display:grid;gap:.8rem;justify-items:center">
           <div style="font-size:2.5rem">🔑</div><h3>سجل الدخول أولًا</h3>
-          <p style="color:var(--muted)">استعمل زر «تسجيل الدخول» في الأعلى (Google أو GitHub).</p>
-          <a class="btn btn-amber" href="/workbench">تجربة المختبر بدون حساب 🧪</a></div>`;
+          <p style="color:var(--muted)">GitHub للدخول الكامل، أو تابع كزائر بحفظ محلي.</p>
+          <div style="display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center">
+            <button class="btn btn-amber" id="profLogin">تسجيل الدخول</button>
+            <button class="btn btn-ghost" id="profGuest">🚶 المتابعة كزائر</button>
+          </div></div>`;
+        document.getElementById('profLogin')?.addEventListener('click', () => {
+          window.dispatchEvent(new CustomEvent('wattouna:open-auth'));
+        });
+        document.getElementById('profGuest')?.addEventListener('click', () => {
+          try { localStorage.setItem('wattouna-guest', '1'); } catch (e) {}
+          location.href = '/workbench';
+        });
         return;
       }
       const uid = session.user.id;
@@ -155,12 +165,12 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 <style>
   .prof-id { display: flex; gap: 1.1rem; align-items: center; flex-wrap: wrap; }
   .prof-id img { width: 72px; height: 72px; border-radius: 50%; border: 2px solid var(--amber); }
-  .prof-ph { width: 72px; height: 72px; display: grid; place-items: center; font-size: 2rem; background: #16223e; border-radius: 50%; }
+  .prof-ph { width: 72px; height: 72px; display: grid; place-items: center; font-size: 2rem; background: var(--surface2); border-radius: 50%; }
   .prof-stats { display: flex; gap: .7rem; }
   .prof-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .7rem; }
   .prof-form label { display: grid; gap: .3rem; font-size: .85rem; font-weight: 700; }
   .prof-form input, .prof-form select, .prof-form textarea {
-    background: #0a132a; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
     padding: .55rem .7rem; color: var(--text); font-family: inherit; font-size: .9rem;
   }
   .prof-card { display: grid; gap: .4rem; align-content: start; }

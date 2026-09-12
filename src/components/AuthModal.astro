@@ -1,0 +1,111 @@
+---
+const SUPA_URL = import.meta.env.PUBLIC_SUPABASE_URL || '';
+const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
+// GitHub OAuth callback (server-side, must match Supabase Auth config):
+// https://api-wattouna.hitech.tn/auth/v1/callback
+---
+<div id="authModal" class="auth-modal" hidden>
+  <div class="auth-card card" role="dialog" aria-label="تسجيل الدخول">
+    <button id="authClose" class="auth-x" aria-label="إغلاق">✕</button>
+    <h3 style="margin-top:0">🔑 تسجيل الدخول للصانعين</h3>
+    <p style="color:var(--muted);font-size:.88rem">احفظ دوائرك في السحابة، انسخ تصاميم المجتمع، واجمع نقاط الطاقة المعاد تدويرها.</p>
+    <div id="authErr" class="auth-err" hidden></div>
+    <div class="auth-tip" id="googleTip" hidden>ℹ️ قريباً: تسجيل الدخول عبر Google قيد التفعيل. يرجى المتابعة عبر GitHub أو وضع الزائر.</div>
+    <button id="authGoogle" class="btn btn-ghost auth-provider">🔵 المتابعة عبر Google</button>
+    <button id="authGithub" class="btn btn-ghost auth-provider">⚫ المتابعة عبر GitHub</button>
+    <button id="authGuest" class="btn btn-amber auth-provider">🚶 المتابعة كزائر (Guest Maker)</button>
+    <p id="authDemo" style="color:var(--muted);font-size:.8rem" hidden>☁️ السحابة غير مربوطة بعد — وضع الزائر يحفظ دوائرك محليًا.</p>
+    <div id="authToast" class="auth-toast" hidden></div>
+  </div>
+</div>
+
+<script type="module" define:vars={{ SUPA_URL, SUPA_ANON }}>
+  import { createClient } from '/vendor/supabase.js';
+
+  const configured = Boolean(SUPA_URL && SUPA_ANON);
+  let supabase = null;
+  try {
+    if (configured) supabase = createClient(SUPA_URL, SUPA_ANON);
+  } catch (e) { supabase = null; }
+
+  const modal = document.getElementById('authModal');
+  const err = document.getElementById('authErr');
+  const tip = document.getElementById('googleTip');
+  const toast = document.getElementById('authToast');
+
+  function boot() {
+  if (!modal) return;
+
+  function open() { modal.hidden = false; }
+  function close() { modal.hidden = true; }
+  window.addEventListener('wattouna:open-auth', open);
+
+  function showToast(t) {
+    toast.textContent = t;
+    toast.hidden = false;
+    setTimeout(() => { toast.hidden = true; }, 3500);
+  }
+
+  async function oauth(provider) {
+    err.hidden = true;
+    if (!supabase) {
+      err.textContent = 'السحابة غير مربوطة — جرّب وضع الزائر 👇';
+      err.hidden = false;
+      return;
+    }
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: window.location.origin + '/profile' },
+      });
+      if (error) throw error;
+    } catch (e) {
+      const m = String(e?.message || e);
+      if (provider === 'google' || /provider|unsupported|disabled|not enabled/i.test(m)) {
+        tip.hidden = false;
+      }
+      err.textContent = 'تعذر تسجيل الدخول: ' + m;
+      err.hidden = false;
+    }
+  }
+
+  document.getElementById('authClose')?.addEventListener('click', close);
+  modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+  document.getElementById('authGoogle')?.addEventListener('click', () => {
+    if (!supabase) { tip.hidden = false; return; }
+    oauth('google');
+  });
+  document.getElementById('authGithub')?.addEventListener('click', () => oauth('github'));
+  document.getElementById('authGuest')?.addEventListener('click', () => {
+    try { localStorage.setItem('wattouna-guest', '1'); } catch (e) {}
+    window.dispatchEvent(new CustomEvent('wattouna:guest'));
+    showToast('🚶 وضع الزائر مفعّل — دوائرك تُحفظ محليًا، أهلًا بيك!');
+    setTimeout(close, 1200);
+  });
+
+  if (!supabase) {
+    document.getElementById('authDemo').hidden = false;
+    tip.hidden = false;
+    const g = document.getElementById('authGoogle');
+    const h = document.getElementById('authGithub');
+    if (g) g.setAttribute('disabled', 'true');
+    if (h) h.setAttribute('disabled', 'true');
+  }
+  } // end boot()
+  boot();
+</script>
+
+<style>
+  .auth-modal { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.6); display: grid; place-items: center; padding: 1rem; }
+  .auth-modal[hidden] { display: none; }
+  .auth-card { width: min(400px, 94vw); position: relative; display: grid; gap: .6rem; }
+  .auth-x { position: absolute; top: .7rem; inset-inline-end: .7rem; background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: 8px; cursor: pointer; padding: .2rem .5rem; }
+  .auth-provider { width: 100%; }
+  .auth-provider[disabled] { opacity: .45; cursor: not-allowed; }
+  .auth-err { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.4); color: #fca5a5; border-radius: 10px; padding: .5rem .8rem; font-size: .85rem; }
+  .auth-err[hidden] { display: none; }
+  .auth-tip { background: rgba(56,189,248,.1); border: 1px solid rgba(56,189,248,.4); color: var(--text); border-radius: 10px; padding: .5rem .8rem; font-size: .82rem; }
+  .auth-tip[hidden] { display: none; }
+  .auth-toast { background: rgba(34,197,94,.14); border: 1px solid rgba(34,197,94,.5); color: #86efac; border-radius: 10px; padding: .5rem .8rem; font-size: .85rem; text-align: center; }
+  .auth-toast[hidden] { display: none; }
+</style>

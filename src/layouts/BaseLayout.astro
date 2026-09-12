@@ -21,6 +21,12 @@ const { title = 'واطُنا Wattouna — اصنع محطة طاقتك الشم
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script is:inline>
+      try {
+        var wt = localStorage.getItem('wattouna-theme') || 'dark-solar';
+        if (wt !== 'dark-solar') document.documentElement.setAttribute('data-theme', wt);
+      } catch (e) {}
+    </script>
     <title>{title}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

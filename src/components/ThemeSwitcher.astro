@@ -1,0 +1,84 @@
+---
+const themes = [
+  { id: 'dark-solar', name: 'شمسي داكن', dots: ['#070c18', '#f59e0b', '#38bdf8'] },
+  { id: 'light-clean', name: 'فاتح نظيف', dots: ['#f8fafc', '#2563eb', '#0f172a'] },
+  { id: 'cyber-oled', name: 'سايبر OLED', dots: ['#000000', '#8b5cf6', '#10b981'] },
+  { id: 'emerald-eco', name: 'زمردي بيئي', dots: ['#0c1a14', '#22c55e', '#d97706'] },
+];
+---
+<div class="tswitch" id="tswitch">
+  <button id="tsBtn" class="ts-btn" aria-label="تبديل المظهر" aria-haspopup="true">
+    <span class="ts-dots" id="tsDots"></span><span id="tsName">🎨</span>▾
+  </button>
+  <div id="tsMenu" class="ts-menu" hidden>
+    {themes.map((t) => (
+      <button class="ts-opt" data-theme-id={t.id}>
+        <span class="ts-dots">{t.dots.map((c) => (<i style={`background:${c}`}></i>))}</span>
+        {t.name}
+      </button>
+    ))}
+  </div>
+</div>
+
+<script>
+(function () {
+  var KEY = 'wattouna-theme';
+  var btn = document.getElementById('tsBtn');
+  var menu = document.getElementById('tsMenu');
+  var dots = document.getElementById('tsDots');
+  var name = document.getElementById('tsName');
+  if (!btn || !menu) return;
+  var DOTS = {
+    'dark-solar': ['#070c18', '#f59e0b', '#38bdf8'],
+    'light-clean': ['#f8fafc', '#2563eb', '#0f172a'],
+    'cyber-oled': ['#000000', '#8b5cf6', '#10b981'],
+    'emerald-eco': ['#0c1a14', '#22c55e', '#d97706'],
+  };
+  var NAMES = { 'dark-solar': 'شمسي', 'light-clean': 'فاتح', 'cyber-oled': 'سايبر', 'emerald-eco': 'زمردي' };
+  function paint(t) {
+    dots.innerHTML = (DOTS[t] || DOTS['dark-solar']).map(function (c) {
+      return '<i style="background:' + c + '"></i>';
+    }).join('');
+    name.textContent = NAMES[t] || '🎨';
+  }
+  function apply(t) {
+    if (t === 'dark-solar') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', t);
+    try { localStorage.setItem(KEY, t); } catch (e) {}
+    paint(t);
+  }
+  var cur = 'dark-solar';
+  try { cur = localStorage.getItem(KEY) || 'dark-solar'; } catch (e) {}
+  paint(cur);
+  btn.addEventListener('click', function (e) { e.stopPropagation(); menu.hidden = !menu.hidden; });
+  document.addEventListener('click', function () { menu.hidden = true; });
+  menu.querySelectorAll('.ts-opt').forEach(function (o) {
+    o.addEventListener('click', function () { apply(o.getAttribute('data-theme-id')); menu.hidden = true; });
+  });
+})();
+</script>
+
+<style>
+  .tswitch { position: relative; }
+  .ts-btn {
+    display: flex; align-items: center; gap: .4rem;
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    border-radius: 999px; padding: .45rem .8rem; cursor: pointer;
+    font-family: inherit; font-size: .82rem;
+  }
+  .ts-dots { display: inline-flex; gap: 2px; }
+  .ts-dots i { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--border); display: inline-block; }
+  .ts-menu {
+    position: absolute; top: 110%; inset-inline-end: 0; z-index: 60;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    min-width: 170px; padding: .4rem; display: grid; gap: .2rem;
+  }
+  .ts-menu[hidden] { display: none; }
+  .ts-opt {
+    display: flex; align-items: center; gap: .55rem;
+    background: transparent; border: none; color: var(--text);
+    padding: .5rem .6rem; border-radius: 8px; cursor: pointer;
+    font-family: inherit; font-size: .85rem; text-align: right;
+  }
+  .ts-opt:hover { background: var(--surface2); }
+</style>
