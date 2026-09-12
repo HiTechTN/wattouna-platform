@@ -1,0 +1,93 @@
+---
+const files = [
+  {
+    name: 'هيكل الصندوق — Chassis',
+    file: 'pbx36-chassis.stl',
+    href: '/downloads/pbx36-chassis.stl',
+    format: 'STL',
+    meta: 'نموذج ثلاثي الأبعاد قابل للطباعة — جسم علبة PBX-36',
+    icon: '📦',
+    cls: 'amber',
+  },
+  {
+    name: 'اللوحة الأمامية — Front Panel',
+    file: 'pbx36-front-panel.stl',
+    href: '/downloads/pbx36-front-panel.stl',
+    format: 'STL',
+    meta: 'نموذج ثلاثي الأبعاد قابل للطباعة — واجهة الشاشة والمنافذ',
+    icon: '🖥️',
+    cls: 'cyan',
+  },
+  {
+    name: 'مخطط التوصيلات الكهربائية',
+    file: 'pbx36-wiring-guide.pdf',
+    href: '/downloads/pbx36-wiring-guide.pdf',
+    format: 'PDF',
+    meta: 'مخطط عالي الدقة — التوصيلات الكاملة خطوة بخطوة',
+    icon: '📐',
+    cls: 'green',
+  },
+];
+---
+<div class="grid-3">
+  {files.map((f) => (
+    <div class="card dl-card">
+      <div class="dl-icon" aria-hidden="true">{f.icon}</div>
+      <span class={`pill ${f.cls}`} dir="ltr">{f.format}</span>
+      <h3>{f.name}</h3>
+      <p class="dl-meta">{f.meta}</p>
+      <code class="dl-file" dir="ltr">{f.file}</code>
+      <a class="btn btn-amber dl-btn" href={f.href} download={f.file}>
+        ⬇️ تحميل {f.format}
+      </a>
+    </div>
+  ))}
+</div>
+<p class="dl-note">🔓 كل الملفات عتاد مفتوح برخصة MIT — حمّل، اطبع، عدّل، وشارك. اطبع الـ STL بإعدادات <b dir="ltr">0.2mm / 30% infill / PETG</b> الموصى بها.</p>
+
+<style>
+  .dl-card {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    align-items: flex-start;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .dl-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, .45);
+  }
+  .dl-card h3 { margin: 0; font-size: 1.05rem; }
+  .dl-icon {
+    font-size: 2rem;
+    width: 56px;
+    height: 56px;
+    display: grid;
+    place-items: center;
+    background: #111d36;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+  }
+  .dl-meta { color: var(--muted); font-size: .88rem; margin: 0; }
+  .dl-file {
+    font-size: .75rem;
+    color: var(--cyan);
+    background: #0a132a;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: .25rem .6rem;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .dl-btn { margin-top: auto; width: 100%; }
+  .dl-note {
+    margin-top: 1.2rem;
+    color: var(--muted);
+    font-size: .9rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: .8rem 1.1rem;
+  }
+  .dl-note b { color: var(--text); }
+</style>

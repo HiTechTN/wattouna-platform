@@ -1,0 +1,28 @@
+---
+---
+<header class="site-header">
+  <div class="container nav">
+    <a href="#" class="brand" aria-label="Wattouna home" style="text-decoration:none">
+      <span class="brand-mark">⚡</span>
+      <span>واطُنا <span style="color:var(--amber)">Wattouna</span><small>OPEN CLEAN ENERGY • طاقة مفتوحة</small></span>
+    </a>
+    <nav class="nav-links" id="navLinks" aria-label="Primary">
+      <a href="#hero">الرئيسية</a>
+      <a href="#calculator">حاسبة الاستقلالية</a>
+      <a href="#model3d">النموذج ثلاثي الأبعاد</a>
+      <a href="#guide">دليل التجميع</a>
+      <a href="#bom">قائمة المكونات</a>
+      <a href="#sourcing">📡 رادار التوريد</a>
+    </nav>
+    <div class="nav-cta">
+      <a href="#calculator" class="btn btn-amber" style="padding:.5rem 1rem">⚡ جرّب الحاسبة</a>
+      <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">☰</button>
+    </div>
+  </div>
+</header>
+<script>
+  const t = document.getElementById('menuToggle');
+  const l = document.getElementById('navLinks');
+  t?.addEventListener('click', () => l?.classList.toggle('open'));
+  l?.querySelectorAll('a').forEach(a => a.addEventListener('click', () => l.classList.remove('open')));
+</script>

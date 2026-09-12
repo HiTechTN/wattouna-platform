@@ -1,0 +1,381 @@
+---
+import stores from '../data/stores.json';
+---
+<div class="ssr-wrap">
+  <!-- Radar header bar: beacon + status + GPS -->
+  <div class="card ssr-head">
+    <div class="ssr-beacon" aria-hidden="true">📡</div>
+    <div class="ssr-head-text">
+      <span id="ssrStatus" class="badge warn">📡 جارٍ رصد موقعك…</span>
+      <p class="ssr-coords"><span id="ssrCoords" dir="ltr">…</span></p>
+    </div>
+    <button id="ssrGps" class="btn btn-cyan" type="button">📍 حدد موقعي بدقة</button>
+  </div>
+  <p id="ssrError" class="ssr-error" hidden></p>
+
+  <!-- Manual city/region override -->
+  <div class="card ssr-controls">
+    <label>🏙️ المدينة / الجهة
+      <select id="ssrCity"></select>
+    </label>
+  </div>
+
+  <!-- Dynamic search fallback (shown when > 40 km away or abroad) -->
+  <div id="ssrFallback"></div>
+
+  <!-- Nearest stores, sorted by Haversine distance -->
+  <h3 class="ssr-title">🏪 أقرب متاجر المكونات إليك</h3>
+  <div id="ssrStores" class="grid-3"></div>
+
+  <!-- Estimated total budget bar -->
+  <h3 class="ssr-title">💰 الكلفة التقديرية لمشروع PBX-36</h3>
+  <div class="card ssr-budget">
+    <div id="ssrBudgetRanges" class="ssr-ranges"></div>
+    <p class="ssr-note">تشمل التقديرات: بطارية 10S، موديول MPPT، قفل MOSFET، الموصلات، ومحول Buck. الأسعار تقريبية حسب السوق المحلي.</p>
+  </div>
+</div>
+
+<script define:vars={{ stores }}>
+(function () {
+  var STORES = stores;
+  var LS_KEY = 'wattouna-sourcing-v1';
+  var FALLBACK_KM = 40;
+
+  var CITIES = [
+    { id: 'tunis',  name_ar: 'تونس العاصمة', lat: 36.7992, lng: 10.1805, country: 'TN' },
+    { id: 'sfax',   name_ar: 'صفاقس',        lat: 34.7398, lng: 10.7601, country: 'TN' },
+    { id: 'sousse', name_ar: 'سوسة',         lat: 35.8322, lng: 10.6358, country: 'TN' },
+    { id: 'ariana', name_ar: 'أريانة',        lat: 36.8442, lng: 10.2051, country: 'TN' },
+    { id: 'paris',  name_ar: 'باريس / أوروبا', lat: 48.8566, lng: 2.3522, country: 'FR' },
+    { id: 'other',  name_ar: 'أخرى',          lat: null, lng: null, country: null }
+  ];
+
+  var COUNTRY_AR = { TN: 'تونس', DZ: 'الجزائر', MA: 'المغرب', LY: 'ليبيا', FR: 'فرنسا', DE: 'ألمانيا', IT: 'إيطاليا', ES: 'إسبانيا', BE: 'بلجيكا', NL: 'هولندا', US: 'الولايات المتحدة', CA: 'كندا' };
+  var EU = ['FR', 'DE', 'IT', 'ES', 'BE', 'NL', 'AT', 'PT', 'GR', 'SE', 'IE', 'FI', 'DK', 'PL', 'CZ', 'HU', 'RO', 'LU'];
+
+  var BUDGETS = [
+    { id: 'tunisia', label: '🇹🇳 تونس', range: '240 د.ت - 320 د.ت', match: function (c) { return c === 'TN'; } },
+    { id: 'europe', label: '🇪🇺 أوروبا', range: '85 € - 110 €', match: function (c) { return EU.indexOf(c) > -1; } },
+    { id: 'global', label: '🌍 عالمي', range: '90 $ - 120 $', match: function () { return true; } }
+  ];
+
+  var state = { cityId: 'tunis', cityAr: 'تونس العاصمة', country: 'TN', lat: 36.7992, lng: 10.1805, source: 'guess' };
+
+  var elStatus = document.getElementById('ssrStatus');
+  var elCoords = document.getElementById('ssrCoords');
+  var elCity = document.getElementById('ssrCity');
+  var elStores = document.getElementById('ssrStores');
+  var elFallback = document.getElementById('ssrFallback');
+  var elRanges = document.getElementById('ssrBudgetRanges');
+  var elError = document.getElementById('ssrError');
+  var btnGps = document.getElementById('ssrGps');
+
+  /* ---------- proximity engine (Haversine) ---------- */
+  function getDistanceKm(lat1, lon1, lat2, lon2) {
+    var R = 6371;
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLon = (lon2 - lon1) * Math.PI / 180;
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  function distBadge(km) {
+    if (km < 1) return 'على بعد ' + Math.max(50, Math.round(km * 1000)) + ' م منك 🚶';
+    return 'على بعد ' + km.toFixed(1) + ' كم منك 🚗';
+  }
+  function countryName(code) { return COUNTRY_AR[code] || code; }
+  function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {} }
+  function load() {
+    try {
+      var s = JSON.parse(localStorage.getItem(LS_KEY));
+      if (!s || typeof s.lat !== 'number' || typeof s.lng !== 'number') return null;
+      if (!CITIES.some(function (c) { return c.id === s.cityId; })) return null;
+      return s;
+    } catch (e) { return null; }
+  }
+  function showError(msg) {
+    elError.textContent = msg;
+    elError.hidden = false;
+    setTimeout(function () { elError.hidden = true; }, 6000);
+  }
+
+  /* ---------- detection ---------- */
+  function guessFromLocale() {
+    var lang = (navigator.language || '').toUpperCase();
+    var tz = '';
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+    if (tz === 'Africa/Tunis' || lang.indexOf('TN') > -1) return 'tunis';
+    if (tz === 'Africa/Sfax' || tz === 'Africa/Tunis') return 'tunis';
+    if (lang === 'AR' || lang.indexOf('AR-') === 0) return 'tunis';
+    if (tz === 'Europe/Paris' || lang.indexOf('FR') === 0) return 'paris';
+    return 'tunis';
+  }
+
+  function applyCity(cityId, source, coords, countryOverride, cityLabelOverride) {
+    var c = CITIES.find(function (x) { return x.id === cityId; }) || CITIES[0];
+    state.cityId = c.id;
+    state.cityAr = cityLabelOverride || c.name_ar;
+    state.country = countryOverride || c.country || state.country || 'TN';
+    if (c.id === 'other') {
+      if (coords) { state.lat = coords.lat; state.lng = coords.lng; }
+    } else {
+      state.lat = (coords && coords.lat) || c.lat;
+      state.lng = (coords && coords.lng) || c.lng;
+    }
+    state.source = source;
+  }
+
+  async function detect() {
+    var saved = load();
+    if (saved) {
+      state = Object.assign(state, saved, { source: 'saved' });
+      render();
+      return;
+    }
+    try {
+      var ctrl = new AbortController();
+      var t = setTimeout(function () { ctrl.abort(); }, 6000);
+      var res = await fetch('https://ipapi.co/json/', { signal: ctrl.signal });
+      clearTimeout(t);
+      if (!res.ok) throw new Error('ipapi ' + res.status);
+      var d = await res.json();
+      var code = (d.country_code || 'TN').toUpperCase();
+      var coords = (typeof d.latitude === 'number') ? { lat: d.latitude, lng: d.longitude } : null;
+      if (code === 'TN') {
+        var cityName = (d.city || '').toLowerCase();
+        var match = 'tunis';
+        if (cityName.indexOf('sfax') > -1 || cityName.indexOf('صفاقس') > -1) match = 'sfax';
+        else if (cityName.indexOf('sousse') > -1 || cityName.indexOf('سوسة') > -1) match = 'sousse';
+        else if (cityName.indexOf('ariana') > -1 || cityName.indexOf('أريانة') > -1) match = 'ariana';
+        applyCity(match, 'ip', coords, 'TN', d.city && match === 'tunis' ? d.city : undefined);
+      } else if (code === 'FR') {
+        applyCity('paris', 'ip', coords, 'FR', d.city || undefined);
+      } else {
+        applyCity('other', 'ip', coords || { lat: 36.7992, lng: 10.1805 }, code, d.city || undefined);
+      }
+    } catch (e) {
+      applyCity(guessFromLocale(), 'guess', null);
+    }
+    save();
+    render();
+  }
+
+  /* ---------- rendering ---------- */
+  function sourceLabel() {
+    if (state.source === 'gps') return '🛰️ GPS دقيق';
+    if (state.source === 'manual') return '✋ اختيار يدوي';
+    if (state.source === 'saved') return '💾 موقعك المحفوظ';
+    if (state.source === 'ip') return '🌐 رصد تلقائي عبر IP';
+    return '🔮 تخمين تلقائي';
+  }
+
+  function storeCard(s, km) {
+    var specs = (s.specialties || []).map(function (sp) {
+      return '<span class="pill cyan" dir="auto">' + sp + '</span>';
+    }).join('');
+    var phoneBtn = s.phone
+      ? '<a class="btn btn-ghost ssr-mini" href="tel:' + s.phone.replace(/[^+\d]/g, '') + '">📞 ' + s.phone + '</a>'
+      : '';
+    return (
+      '<div class="card ssr-store">' +
+        '<span class="ssr-dist">' + distBadge(km) + '</span>' +
+        '<b>' + s.name + '</b>' +
+        '<small>📍 ' + s.address + '</small><br>' +
+        '<span class="pill amber">' + s.category + '</span>' +
+        '<p>💡 ' + s.sourcing_note + '</p>' +
+        '<div class="ssr-specs">' + specs + '</div>' +
+        '<div class="ssr-actions">' +
+          '<a class="btn btn-amber ssr-mini" target="_blank" rel="noopener" href="' + s.google_maps_url + '">🧭 توجيه خرائط</a>' +
+          phoneBtn +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function render() {
+    elStatus.className = 'badge ok';
+    elStatus.textContent = '📍 تم رصد موقعك: ' + state.cityAr + '، ' + countryName(state.country) + ' (' + sourceLabel() + ')';
+    elCoords.textContent = Number(state.lat).toFixed(4) + ', ' + Number(state.lng).toFixed(4);
+
+    elCity.innerHTML = '';
+    CITIES.forEach(function (c) {
+      var o = document.createElement('option');
+      o.value = c.id; o.textContent = c.name_ar;
+      if (c.id === state.cityId) o.selected = true;
+      elCity.appendChild(o);
+    });
+
+    var ranked = STORES
+      .filter(function (s) { return s.type !== 'online_delivery'; })
+      .map(function (s) {
+        return { s: s, km: getDistanceKm(state.lat, state.lng, s.coordinates.lat, s.coordinates.lng) };
+      })
+      .sort(function (a, b) { return a.km - b.km; });
+
+    var nearest = ranked.length ? ranked[0].km : Infinity;
+    var abroad = state.country !== 'TN';
+    var delivery = STORES.find(function (s) { return s.type === 'online_delivery'; });
+
+    /* dynamic search fallback */
+    if (nearest > FALLBACK_KM || abroad) {
+      var mapsSearch = 'https://www.google.com/maps/search/magasin+composants+electroniques+' + encodeURIComponent(state.cityAr);
+      elFallback.innerHTML =
+        '<div class="card ssr-fallback-card">' +
+          '<span class="pill amber">📦 التوصيل هو الحل الأسرع لك</span>' +
+          '<h3>أنت ' + (abroad ? 'خارج تونس' : 'على بعد ' + nearest.toFixed(0) + ' كم من أقرب محل') + ' — نوصي بالتوصيل</h3>' +
+          '<p>' + (delivery ? delivery.sourcing_note : '') + '</p>' +
+          '<div class="ssr-actions">' +
+            '<a class="btn btn-cyan ssr-mini" target="_blank" rel="noopener" href="' + mapsSearch + '">🗺️ بحث خرائط عن: composants électroniques ' + state.cityAr + '</a>' +
+            (delivery && delivery.phone ? '<a class="btn btn-amber ssr-mini" href="tel:' + delivery.phone.replace(/[^+\d]/g, '') + '">📞 ' + delivery.name + ': ' + delivery.phone + '</a>' : '') +
+          '</div>' +
+        '</div>';
+    } else {
+      elFallback.innerHTML = '';
+    }
+
+    elStores.innerHTML = ranked.map(function (x) { return storeCard(x.s, x.km); }).join('');
+
+    /* budget bar — highlight active region */
+    var active = BUDGETS.find(function (b) { return b.match(state.country); }) || BUDGETS[2];
+    elRanges.innerHTML = BUDGETS.map(function (b) {
+      return '<div class="ssr-range' + (b.id === active.id ? ' active' : '') + '">' +
+        '<small>' + b.label + '</small><b dir="ltr">~ ' + b.range + '</b></div>';
+    }).join('');
+  }
+
+  /* ---------- events ---------- */
+  elCity.addEventListener('change', function () {
+    var c = CITIES.find(function (x) { return x.id === elCity.value; }) || CITIES[0];
+    if (c.id === 'other') {
+      applyCity('other', 'manual', null, state.country, state.cityAr);
+    } else {
+      applyCity(c.id, 'manual', null);
+    }
+    save(); render();
+  });
+
+  btnGps.addEventListener('click', function () {
+    if (!('geolocation' in navigator)) { showError('❌ متصفحك لا يدعم تحديد الموقع الجغرافي.'); return; }
+    btnGps.disabled = true;
+    btnGps.textContent = '… جارٍ تحديد الإحداثيات 🛰️';
+    navigator.geolocation.getCurrentPosition(
+      function (pos) {
+        state.lat = pos.coords.latitude;
+        state.lng = pos.coords.longitude;
+        state.source = 'gps';
+        save(); render();
+        btnGps.disabled = false;
+        btnGps.textContent = '📍 حدد موقعي بدقة';
+      },
+      function (err) {
+        showError('❌ تعذّر تحديد الموقع: ' + (err.message || 'تم رفض الإذن') + ' — يمكنك الاختيار يدويًا من القائمة.');
+        btnGps.disabled = false;
+        btnGps.textContent = '📍 حدد موقعي بدقة';
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  });
+
+  detect();
+})();
+</script>
+
+<style>
+  .ssr-wrap { display: grid; gap: 1.2rem; }
+  .ssr-head {
+    display: flex;
+    align-items: center;
+    gap: 1.1rem;
+    flex-wrap: wrap;
+    background: linear-gradient(135deg, rgba(34,197,94,.08), rgba(56,189,248,.06)), var(--card);
+  }
+  .ssr-head-text { flex: 1; min-width: 220px; display: grid; gap: .4rem; }
+  .ssr-coords { margin: 0; color: var(--muted); font-size: .85rem; }
+  .ssr-beacon {
+    width: 64px; height: 64px; flex: none;
+    display: grid; place-items: center;
+    font-size: 1.7rem; border-radius: 50%;
+    background: radial-gradient(circle, rgba(34,197,94,.45), rgba(34,197,94,.05) 70%);
+    position: relative;
+  }
+  .ssr-beacon::before, .ssr-beacon::after {
+    content: ''; position: absolute; inset: 0;
+    border-radius: 50%; border: 2px solid var(--green);
+    animation: ssr-ping 2.4s ease-out infinite;
+  }
+  .ssr-beacon::after { animation-delay: 1.2s; }
+  @keyframes ssr-ping {
+    0% { transform: scale(.65); opacity: 1; }
+    100% { transform: scale(1.7); opacity: 0; }
+  }
+  .ssr-error {
+    background: rgba(239,68,68,.1);
+    border: 1px solid rgba(239,68,68,.4);
+    color: #fca5a5;
+    border-radius: 12px;
+    padding: .6rem 1rem;
+    margin: 0;
+    font-size: .88rem;
+  }
+  .ssr-controls label { display: grid; gap: .35rem; font-weight: 700; font-size: .9rem; }
+  .ssr-controls select {
+    background: #0a132a;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: .65rem .8rem;
+    font-family: inherit;
+    font-size: .95rem;
+    cursor: pointer;
+    max-width: 340px;
+  }
+  .ssr-controls select:focus { outline: none; border-color: var(--cyan); }
+  .ssr-title { margin: .4rem 0 0; font-size: 1.1rem; }
+  .ssr-note { color: var(--muted); font-size: .82rem; margin: .6rem 0 0; }
+  .ssr-store { display: grid; gap: .45rem; align-content: start; }
+  .ssr-store small { color: var(--muted); }
+  .ssr-store p { margin: 0; color: var(--muted); font-size: .86rem; }
+  .ssr-specs { display: flex; gap: .35rem; flex-wrap: wrap; }
+  .ssr-specs .pill { font-size: .72rem; }
+  .ssr-dist {
+    justify-self: start;
+    background: rgba(34,197,94,.14);
+    border: 1px solid rgba(34,197,94,.5);
+    color: #86efac;
+    padding: .25rem .8rem;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: .82rem;
+  }
+  .ssr-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .3rem; }
+  .ssr-mini { padding: .45rem .9rem; font-size: .82rem; }
+  .ssr-fallback-card {
+    border-color: rgba(245,158,11,.5);
+    background: linear-gradient(135deg, rgba(245,158,11,.1), rgba(245,158,11,.02)), var(--card);
+    display: grid;
+    gap: .5rem;
+  }
+  .ssr-fallback-card h3 { margin: 0; font-size: 1.05rem; }
+  .ssr-fallback-card p { margin: 0; color: var(--muted); font-size: .9rem; }
+  .ssr-budget { display: grid; gap: .4rem; }
+  .ssr-ranges { display: grid; grid-template-columns: repeat(3, 1fr); gap: .7rem; }
+  .ssr-range {
+    background: #0a132a;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: .7rem .9rem;
+    display: grid;
+    gap: .2rem;
+    opacity: .55;
+  }
+  .ssr-range small { color: var(--muted); }
+  .ssr-range b { font-size: 1.05rem; }
+  .ssr-range.active { opacity: 1; border-color: var(--amber); box-shadow: 0 0 18px rgba(245,158,11,.15); }
+  .ssr-range.active b { color: var(--amber); }
+  @media (max-width: 900px) {
+    .ssr-ranges { grid-template-columns: 1fr; }
+  }
+</style>

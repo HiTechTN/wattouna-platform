@@ -1,0 +1,104 @@
+[
+  {
+    "id": "tn-tunis-athenes",
+    "name": "محلات نهج أثينا للمكونات (Rue d'Athènes Hub)",
+    "category": "مكونات دقيقة وأشباه موصلات",
+    "city": "تونس العاصمة",
+    "governorate": "Tunis",
+    "coordinates": {
+      "lat": 36.7992,
+      "lng": 10.1805
+    },
+    "address": "نهج أثينا ومحيط ساحة برشلونة، 1000 تونس العاصمة",
+    "specialties": ["IRF4905", "TL431", "مقاومات دقيقة", "Relais", "أزرار ومفاتيح"],
+    "phone": "+216 71 345 678",
+    "google_maps_url": "https://maps.google.com/?q=36.7992,10.1805",
+    "type": "physical_hub",
+    "sourcing_note": "أكبر تجمع لمحلات القطع الإلكترونية في تونس. أفضل مكان لشراء المكونات المفردة والـ Veroboard بأسعار الجملة."
+  },
+  {
+    "id": "tn-tunis-moncef-bey",
+    "name": "سوق منصف باي (جناح بطاريات الليثيوم والسكوتر)",
+    "category": "بطاريات وتدوير (Recycling Hub)",
+    "city": "تونس العاصمة",
+    "governorate": "Tunis",
+    "coordinates": {
+      "lat": 36.7915,
+      "lng": 10.1848
+    },
+    "address": "سوق منصف باي، باب عليوة، تونس",
+    "specialties": ["بطاريات سكوتر 10S مستعملة", "خلايا 18650 و 21700", "شواحن 42V", "كابلات XT60"],
+    "phone": null,
+    "google_maps_url": "https://maps.google.com/?q=36.7915,10.1848",
+    "type": "market",
+    "sourcing_note": "أفضل مكان في تونس لاقتناء بطاريات E-Scooter مستعملة بنصف السعر لاستخراج بنك طاقة 36V أصلي."
+  },
+  {
+    "id": "tn-ariana-charguia",
+    "name": "منطقة الشرقية / أريانة لمعدات الطاقة والميكاترونيكس",
+    "category": "موديولات شمسية ومحولات طاقة",
+    "city": "الشرقية 1 / أريانة",
+    "governorate": "Ariana",
+    "coordinates": {
+      "lat": 36.8442,
+      "lng": 10.2051
+    },
+    "address": "المنطقة الصناعية الشرقية 1، 2035 تونس",
+    "specialties": ["موديولات MPPT", "محولات Buck 12V 10A", "علب بلاستيكية IP65", "WAGO 221"],
+    "phone": "+216 71 770 123",
+    "google_maps_url": "https://maps.google.com/?q=36.8442,10.2051",
+    "type": "retail_store",
+    "sourcing_note": "متوفر فيها محولات الطاقة المقاومة للماء ومعدات الطاقة الشمسية الاحترافية ومكعبات التوصيل السريع."
+  },
+  {
+    "id": "tn-sfax-babelbhar",
+    "name": "محلات إلكترونيات باب بحر - صفاقس",
+    "category": "مكونات إلكترونية وصيانة صناعية",
+    "city": "صفاقس",
+    "governorate": "Sfax",
+    "coordinates": {
+      "lat": 34.7398,
+      "lng": 10.7601
+    },
+    "address": "شارع الهادي شاكر / باب بحر، 3000 صفاقس",
+    "specialties": ["ترانزيستورات قدرة", "فيوزات ومقابس", "أسلاك سيليكون AWG", "كروت شحن USB-C"],
+    "phone": "+216 74 220 450",
+    "google_maps_url": "https://maps.google.com/?q=34.7398,10.7601",
+    "type": "physical_hub",
+    "sourcing_note": "المركز الرئيسي لتوزيع المكونات الإلكترونية في جهة الوسط والجنوب التونسي."
+  },
+  {
+    "id": "tn-sousse-trocadero",
+    "name": "محلات الإلكترونيات والروبوتيك بسوسة (Trocadéro)",
+    "category": "موديولات DIY وقطع إلكترونية",
+    "city": "سوسة",
+    "governorate": "Sousse",
+    "coordinates": {
+      "lat": 35.8322,
+      "lng": 10.6358
+    },
+    "address": "محيط ساحة التروكاديرو وخزامة، 4000 سوسة",
+    "specialties": ["أجهزة قياس وتثبيت", "موديولات Step-Down", "أزرار ومؤشرات LED"],
+    "phone": "+216 73 210 980",
+    "google_maps_url": "https://maps.google.com/?q=35.8322,10.6358",
+    "type": "retail_store",
+    "sourcing_note": "تغطي جهة الساحل بالكامل للمشاريع الطلابية ومشاريع الطاقة الشمسية المنزلية الصغيرة."
+  },
+  {
+    "id": "tn-online-delivery",
+    "name": "خدمة التوصيل السريع للمحافظات والداخل",
+    "category": "متاجر إلكترونية وطنية",
+    "city": "كامل تراب الجمهورية",
+    "governorate": "All",
+    "coordinates": {
+      "lat": 36.8065,
+      "lng": 10.1815
+    },
+    "address": "توصيل للمنزل في 24-48 ساعة عبر شركات الشحن المحلية",
+    "specialties": ["توصيل جميع القطع", "الدفع عند الاستلام (Contre-Remboursement)"],
+    "phone": "+216 50 123 456",
+    "google_maps_url": "https://maps.google.com/?q=Tunisia",
+    "type": "online_delivery",
+    "sourcing_note": "خيار بديل تلقائي إذا كان الزائر يبعد أكثر من 40 كم عن أقرب محل إلكترونيات فعلي."
+  }
+]

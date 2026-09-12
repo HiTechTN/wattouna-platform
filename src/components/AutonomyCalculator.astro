@@ -1,0 +1,132 @@
+---
+---
+<div class="card" id="calcCard">
+  <div class="calc-layout">
+    <div>
+      <h3 style="margin-top:0">🔌 اختر أجهزتك</h3>
+      <div id="applianceList"></div>
+      <div class="solar-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem">
+          <label for="solarSlider" style="font-weight:700">☀️ قدرة اللوح الشمسي: <span id="solarVal" style="color:var(--amber)">80W</span></label>
+          <span class="pill cyan">MPPT 90%</span>
+        </div>
+        <input type="range" id="solarSlider" min="0" max="160" step="5" value="80" />
+        <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:.78rem"><span>0W</span><span>80W</span><span>160W</span></div>
+      </div>
+    </div>
+    <div>
+      <h3 style="margin-top:0">📊 النتائج المباشرة</h3>
+      <div style="margin-bottom:.8rem"><span id="statusBadge" class="badge warn">—</span></div>
+      <div class="metric-grid">
+        <div class="metric"><small>إجمالي الحمل</small><b id="mLoad" style="color:var(--amber)">0W</b></div>
+        <div class="metric"><small>الحصاد الشمسي الصافي (90%)</small><b id="mHarvest" style="color:var(--cyan)">0W</b></div>
+        <div class="metric"><small>صافي التوازن</small><b id="mNet">0W</b></div>
+        <div class="metric"><small>زمن التشغيل المتبقي (336Wh)</small><b id="mRuntime" style="color:var(--green)">—</b></div>
+      </div>
+      <div class="bar" aria-hidden="true"><i id="loadBar"></i></div>
+      <p style="color:var(--muted);font-size:.82rem">بطارية 10S ليثيوم بسعة صافية <b dir="ltr">336Wh</b>. زمن التشغيل = السعة ÷ (الحمل − الحصاد). عند تفوق الشمس يصبح التشغيل لا نهائيًا ∞.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  const appliances = [
+    { id: 'led',    name: 'إضاءة LED',        watts: 8,  icon: '💡', qty: 2 },
+    { id: 'router', name: 'راوتر 4G Wi-Fi',   watts: 10, icon: '📶', qty: 1 },
+    { id: 'laptop', name: 'لابتوب 100W PD',   watts: 45, icon: '💻', qty: 0 },
+    { id: 'phone',  name: 'شحن سريع للهاتف', watts: 18, icon: '📱', qty: 1 },
+    { id: 'tv',     name: 'تلفاز عبر إنفرتر', watts: 60, icon: '📺', qty: 0 },
+  ];
+  const CAPACITY = 336;
+  const EFF = 0.9;
+
+  const list = document.getElementById('applianceList');
+  const solarSlider = document.getElementById('solarSlider');
+  const solarVal = document.getElementById('solarVal');
+  const mLoad = document.getElementById('mLoad');
+  const mHarvest = document.getElementById('mHarvest');
+  const mNet = document.getElementById('mNet');
+  const mRuntime = document.getElementById('mRuntime');
+  const badge = document.getElementById('statusBadge');
+  const loadBar = document.getElementById('loadBar');
+
+  function renderList() {
+    if (!list) return;
+    list.innerHTML = '';
+    appliances.forEach((a) => {
+      const row = document.createElement('div');
+      row.className = 'appliance';
+      row.innerHTML = `
+        <div class="appliance-info">
+          <span class="appliance-icon">${a.icon}</span>
+          <span><b>${a.name}</b><small><span dir="ltr">${a.watts}W</span> × <span class="q">${a.qty}</span> = <span dir="ltr">${a.watts * a.qty}W</span></small></span>
+        </div>
+        <div class="qty">
+          <button data-act="dec" data-id="${a.id}" aria-label="decrease">−</button>
+          <b>${a.qty}</b>
+          <button data-act="inc" data-id="${a.id}" aria-label="increase">+</button>
+        </div>`;
+      list.appendChild(row);
+    });
+  }
+
+  function calc() {
+    const solar = Number(solarSlider?.value ?? 0);
+    if (solarVal) solarVal.textContent = solar + 'W';
+    const load = appliances.reduce((s, a) => s + a.watts * a.qty, 0);
+    const harvest = Math.round(solar * EFF);
+    const net = harvest - load;
+
+    if (mLoad) mLoad.textContent = load + 'W';
+    if (mHarvest) mHarvest.textContent = harvest + 'W';
+    if (mNet) {
+      mNet.textContent = (net >= 0 ? '+' : '') + net + 'W';
+      mNet.style.color = net >= 0 ? 'var(--green)' : 'var(--amber)';
+    }
+
+    let runtimeText = '—';
+    if (load === 0 && net >= 0) runtimeText = '∞';
+    else if (net >= 0) runtimeText = '∞';
+    else {
+      const deficit = load - harvest;
+      const h = CAPACITY / Math.max(deficit, 1);
+      runtimeText = h >= 100 ? '∞' : h.toFixed(1) + 'h';
+      if (load === 0) runtimeText = '∞';
+    }
+    if (mRuntime) mRuntime.textContent = runtimeText === '∞' ? '∞ ساعة' : runtimeText + '';
+    if (loadBar) loadBar.style.width = Math.min(100, (load / 160) * 100) + '%';
+
+    if (badge) {
+      badge.className = 'badge';
+      if (net >= 0 && load > 0) {
+        badge.classList.add('ok');
+        badge.textContent = '☀️ اكتفاء ذاتي دائم (∞)';
+      } else if (load === 0) {
+        badge.classList.add('ok');
+        badge.textContent = '✅ جاهز — لا حمل موصول';
+      } else if (net >= -20) {
+        badge.classList.add('warn');
+        badge.textContent = '⚠️ شبه مكتفٍ — عزز اللوح قليلًا';
+      } else {
+        badge.classList.add('bad');
+        badge.textContent = '🔋 يعمل على البطارية — ' + runtimeText + ' متبقٍ';
+      }
+    }
+    renderList();
+  }
+
+  list?.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('button[data-act]');
+    if (!btn) return;
+    const id = btn.getAttribute('data-id');
+    const act = btn.getAttribute('data-act');
+    const a = appliances.find((x) => x.id === id);
+    if (!a) return;
+    if (act === 'inc') a.qty = Math.min(10, a.qty + 1);
+    else a.qty = Math.max(0, a.qty - 1);
+    calc();
+  });
+  solarSlider?.addEventListener('input', calc);
+  renderList();
+  calc();
+</script>

@@ -1,0 +1,139 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import AutonomyCalculator from '../components/AutonomyCalculator.astro';
+import Box3DViewer from '../components/Box3DViewer.astro';
+import IkeaStepper from '../components/IkeaStepper.astro';
+import DownloadHub from '../components/DownloadHub.astro';
+import SmartSourcingRadar from '../components/SmartSourcingRadar.astro';
+
+const bom = [
+  { part: 'LTC3780 وحدة رفع MPPT', use: 'شحن شمسي 18–36V → ‏42V', spec: 'حتى 160W / كفاءة ~90%', tag: 'شمسي', cls: 'amber' },
+  { part: 'IP2368 وحدة USB-C PD', use: 'خرج 100W للابتوب + 18W للهاتف', spec: 'PD3.0 / QC', tag: 'مخارج', cls: 'cyan' },
+  { part: 'IRF4905 ‏P-MOSFET + TL431', use: 'إغلاق ذاتي وفصل عند 31.00V', spec: 'تسريب 0.00mA', tag: 'حماية', cls: 'green' },
+  { part: 'WAGO 221 موصلات سريعة', use: 'توصيل بدون لحام', spec: '10 قطع / حتى 32A', tag: 'تجميع', cls: 'cyan' },
+  { part: 'بطارية سكوتر 10S مُعاد تدويرها', use: 'التخزين الرئيسي 36V / صافي 336Wh', spec: '42V مشحونة / فصل 31V', tag: 'تخزين', cls: 'green' },
+  { part: 'خافض 12V / 10A', use: 'راوتر + إضاءة LED', spec: '120W مستمر', tag: 'مخارج', cls: 'cyan' },
+  { part: 'إنفرتر Mini ‏220V', use: 'تلفاز وأجهزة صغيرة (60W)', spec: 'موجة معدلة / 150W ذروة', tag: 'مخارج', cls: 'amber' },
+  { part: 'فيوز 30A + ضفيرة XT60 + فولتميتر', use: 'حماية وواجهة أمامية', spec: 'قياس لحظي للجهد', tag: 'أمان', cls: 'green' },
+];
+---
+<BaseLayout>
+  <!-- HERO -->
+  <div class="container hero" id="hero">
+    <div>
+      <span class="eyebrow">☀️ عتاد مفتوح • بدون لحام • بطاريات مُعاد تدويرها</span>
+      <h1>اصنع محطة طاقتك الشمسية <span class="amber">المستقلة</span> <span class="cyan">بنفسك</span></h1>
+      <p class="lead">
+        واطُنا تُدمقرط الطاقة اللامركزية: حوّل بطاريات السكوتر المهملة إلى مولّد شمسي محمول.
+        مشروع الإطلاق <b>PBX-36 Modular Ultra</b> — نظام 36V بتسريب استعداد حقيقي
+        <b dir="ltr">0.00mA</b>، فصل تلقائي عند <b dir="ltr">31.00V</b>، وشحن شمسي حتى <b dir="ltr">160W</b>.
+        مخططات مفتوحة، وحدات جاهزة من السوق، وتجميع معياري بدون لحام.
+      </p>
+      <div class="hero-actions">
+        <a href="#model3d" class="btn btn-amber">🔍 استكشف مشروع PBX-36</a>
+        <a href="#calculator" class="btn btn-ghost">🧮 احسب استهلاكك</a>
+        <a href="#guide" class="btn btn-ghost">🧰 دليل التجميع</a>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><b dir="ltr" style="color:var(--amber)">0.00mA</b><span>تسريب الاستعداد — صفر حقيقي</span></div>
+        <div class="stat"><b dir="ltr" style="color:var(--cyan)">336Wh</b><span>سعة صافية قابلة للاستخدام</span></div>
+        <div class="stat"><b dir="ltr" style="color:var(--green)">160W</b><span>أقصى دخل شمسي MPPT</span></div>
+      </div>
+    </div>
+    <div class="hero-card">
+      <span class="pill amber">المشروع الرائد 🚀</span>
+      <h2 style="margin:.6rem 0">PBX-36 Modular Ultra</h2>
+      <p style="color:var(--muted);margin-top:0">مولّد شمسي معياري محمول ببطاريات سكوتر مُعاد تدويرها — صممه، اجمعه، وشاركه.</p>
+      <ul style="padding-inline-start:1.2rem;color:var(--muted);font-size:.93rem">
+        <li>🔋 بطارية 10S ليثيوم — <span dir="ltr">336Wh</span> صافية</li>
+        <li>🔌 فصل ذاتي عند <span dir="ltr">31.00V</span> عبر P-MOSFET / TL431</li>
+        <li>☀️ شحن رافع MPPT حتى <span dir="ltr">160W</span> بكفاءة 90%</li>
+        <li>⚡ مخارج: USB-C PD ‏100W + ‏12V/10A + ‏220V</li>
+        <li>🧩 تجميع WAGO 221 — صفر لحام</li>
+      </ul>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem">
+        <a href="#bom" class="btn btn-cyan" style="padding:.55rem 1.1rem">📋 قائمة المكونات</a>
+        <a href="#guide" class="btn btn-ghost" style="padding:.55rem 1.1rem">ابدأ التجميع ←</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- CALCULATOR -->
+  <section class="block container" id="calculator">
+    <div class="section-head">
+      <span class="kicker">🧮 المحاكي التفاعلي</span>
+      <h2>حاسبة الاستقلالية الطاقية</h2>
+      <p>أضف أجهزتك، حرّك قدرة اللوح الشمسي، وشاهد التوازن الطاقي وزمن التشغيل لحظيًا على بطارية 336Wh.</p>
+    </div>
+    <AutonomyCalculator />
+  </section>
+
+  <!-- 3D MODEL -->
+  <section class="block container" id="model3d">
+    <div class="section-head">
+      <span class="kicker">📦 نموذج تفاعلي — CSS 3D خالص</span>
+      <h2>صندوق PBX-36 — اسحب، دوّر، وشغّل</h2>
+      <p>نموذج منظور ثلاثي الأبعاد للعلبة. اسحب بالفأرة أو اللمس للتدوير، وانقر زرّي ON/OFF لتشغيل الشاشة الافتراضية والمؤشرات.</p>
+    </div>
+    <Box3DViewer />
+  </section>
+
+  <!-- GUIDE -->
+  <section class="block container" id="guide">
+    <div class="section-head">
+      <span class="kicker">🧰 دليل التجميع المعياري — بأسلوب IKEA</span>
+      <h2>التجميع بدون لحام — 5 خطوات</h2>
+      <p>من بطارية السكوتر إلى الفحص النهائي: كل خطوة وحدة جاهزة من السوق تُوصل بموصلات WAGO 221 السريعة.</p>
+    </div>
+    <IkeaStepper />
+  </section>
+
+  <!-- DOWNLOADS -->
+  <section class="block container" id="downloads">
+    <div class="section-head">
+      <span class="kicker">⬇️ مركز التحميل — ملفات مفتوحة</span>
+      <h2>حمّل مخططات PBX-36 واطبعها بنفسك</h2>
+      <p>نماذج STL ثلاثية الأبعاد للهيكل واللوحة الأمامية، ومخطط التوصيلات الكهربائية بدقة عالية — كلها عتاد مفتوح برخصة MIT.</p>
+    </div>
+    <DownloadHub />
+  </section>
+
+  <!-- BOM -->
+  <section class="block container" id="bom">
+    <div class="section-head">
+      <span class="kicker">📋 قائمة المواد — وحدات جاهزة من السوق</span>
+      <h2>المكونات (BOM)</h2>
+      <p>لا تصميم مخصص للّوحات — كلها وحدات تجارية جاهزة: LTC3780، IP2368، IRF4905، وموصلات WAGO 221.</p>
+    </div>
+    <div class="card bom-wrap">
+      <table class="bom">
+        <thead><tr><th>المكوّن</th><th>الوظيفة</th><th>المواصفة</th><th>الفئة</th></tr></thead>
+        <tbody>
+          {bom.map((r) => (
+            <tr>
+              <td><b>{r.part}</b></td>
+              <td style="color:var(--muted)">{r.use}</td>
+              <td dir="ltr" style="text-align:left;color:var(--muted)">{r.spec}</td>
+              <td><span class={`pill ${r.cls}`}>{r.tag}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <div class="grid-3" style="margin-top:1.2rem">
+      <div class="card"><b>♻️ تدوير حقيقي</b><p style="color:var(--muted)">نمنح خلايا السكوتر حياة ثانية بدل رميها — فحص، فرز، وإعادة تجميع 10S.</p></div>
+      <div class="card"><b>🔬 صفر مُثبت</b><p style="color:var(--muted)">الفصل الفيزيائي عبر P-MOSFET يعني <span dir="ltr">0.00mA</span> — قِسها بنفسك بالملتيميتر.</p></div>
+      <div class="card"><b>📖 عتاد مفتوح</b><p style="color:var(--muted)">كل المخططات وقوائم الفحص قابلة للنسخ والتعديل والمشاركة — رخصة MIT.</p></div>
+    </div>
+  </section>
+
+  <!-- HARDWARE SOURCING -->
+  <section class="block container" id="sourcing">
+    <div class="section-head">
+      <span class="kicker">📡 رادار التوريد الذكي — رصد تلقائي للموقع</span>
+      <h2>من أين تشتري مكونات PBX-36؟</h2>
+      <p>يرصد الرادار موقعك تلقائيًا، ويرتّب أقرب متاجر الإلكترونيات إليك بالمسافة الحقيقية، مع ميزانية المشروع بعملتك المحلية.</p>
+    </div>
+    <SmartSourcingRadar />
+  </section>
+</BaseLayout>

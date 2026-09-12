@@ -1,0 +1,86 @@
+---
+const steps = [
+  {
+    n: 1,
+    title: 'بطارية السكوتر 10S + ضفيرة XT60',
+    icon: '🔋',
+    body: 'فكك بطارية سكوتر كهربائي مستعملة (36V اسمية، 42V مشحونة). افحص الخلايا، أعد تجميع صفوف 10S السليمة، وثبّت فيوز 30A وضفيرة XT60 كمدخل/مخرج رئيسي.',
+    tips: ['افحص جهد كل مجموعة خلايا — تجاهل أي مجموعة تحت 3.0V', 'استخدم WAGO 221 للأسلاك المؤقتة أثناء الاختبار', 'ثبّت الفيوز على القطب الموجب مباشرة'],
+    warn: '⚠️ لا تشحن خلية منتفخة أو متضررة أبدًا.'
+  },
+  {
+    n: 2,
+    title: 'دائرة الإغلاق الذاتي 0.00mA (P-MOSFET / TL431)',
+    icon: '🔌',
+    body: 'ركّب دائرة الإمساك الذاتي بـ P-MOSFET (مثل IRF4905) مع مرجع TL431 مضبوط على 31.00V. عند هبوط الجهد تحت العتبة تفصل الدائرة نفسها فيزيائيًا — سحب الاستعداد 0.00mA حقيقي.',
+    tips: ['عاير عتبة TL431 على 31.00V بمقياس دقيق', 'زر ON لحظي للتشغيل، والدائرة تُمسك نفسها', 'اختبر الفصل بمصدر متغير قبل التوصيل النهائي'],
+    warn: '✅ تحقق بالملتيميتر على وضع mA: يجب أن تقرأ 0.00mA بعد الفصل.'
+  },
+  {
+    n: 3,
+    title: 'وحدة MPPT الرافعة للشحن الشمسي (18V→42V)',
+    icon: '☀️',
+    body: 'اربط لوحًا شمسيًا (حتى 160W، جهد 18V–36V) عبر مدخل XT60 الشمسي إلى وحدة رفع MPPT من نوع LTC3780 مضبوطة على خرج 42V لشحن بطارية 10S.',
+    tips: ['اضبط جهد الخرج على 42.0V بدون حمل أولًا', 'كفاءة MPPT ≈ 90% — محسوبة في الحاسبة أعلاه', 'أضف دايود حماية من الرجوع إن لم يكن مدمجًا'],
+    warn: '☀️ اختبر تحت الشمس: راقب تيار الشحن ولا تتجاوز 0.5C للخلايا المعاد تدويرها.'
+  },
+  {
+    n: 4,
+    title: 'التوزيع متعدد المخارج',
+    icon: '⚡',
+    body: 'وزّع الطاقة: وحدة USB-C PD بقدرة 100W (بشريحة IP2368)، خافض 12V/10A للأجهزة، وإنفرتر Mini 220V للتلفاز والأجهزة الصغيرة.',
+    tips: ['وحدة IP2368 تعطي 100W PD للابتوب + 18W للهاتف', 'خافض 12V/10A للراوتر والإضاءة', 'الإنفرتر للتلفاز فقط عند الحاجة — استهلاكه 60W'],
+    warn: '🔌 لا تشغّل الإنفرتر بدون حمل تبريد كافٍ.'
+  },
+  {
+    n: 5,
+    title: 'فحوصات الأمان قبل التشغيل (WAGO 221)',
+    icon: '✅',
+    body: 'قبل أول تشغيل: شدّ كل التوصيلات السريعة WAGO 221، تحقق من القطبية، قِس جهد كل مخرج، واختبر الفصل عند 31.00V ثم الشحن الشمسي الكامل حتى 42V.',
+    tips: ['قائمة فحص: قطبية ± ، فيوز 30A، عتبة 31V، خرج 42V', 'وثّق قراءاتك بالصور وشاركها مع المجتمع', 'كل الوصلات بدون لحام — فك وأعد التركيب بحرية'],
+    warn: '🛡️ القاعدة الذهبية: قِس مرتين، شغّل مرة واحدة.'
+  },
+];
+---
+<div class="card">
+  <div class="tabs" role="tablist" aria-label="Assembly steps">
+    {steps.map((s, i) => (
+      <button class={`tab${i === 0 ? ' active' : ''}`} data-step={s.n} role="tab">{s.icon} الخطوة {s.n}</button>
+    ))}
+  </div>
+
+  {steps.map((s, i) => (
+    <div class={`step-panel${i === 0 ? ' active' : ''}`} data-panel={s.n} role="tabpanel">
+      <div class="step-meta">
+        <span class="pill amber">الخطوة {s.n} / 5</span>
+        <h3>{s.icon} {s.title}</h3>
+        <p style="color:var(--muted)">{s.body}</p>
+        <p style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:.6rem .8rem;font-size:.88rem">{s.warn}</p>
+      </div>
+      <div class="step-meta">
+        <h4 style="margin-top:0">🧰 نقاط التنفيذ</h4>
+        <ul class="check">
+          {s.tips.map((t) => (<li>{t}</li>))}
+        </ul>
+        <div class="step-nav">
+          <button class="btn btn-ghost prevBtn" data-cur={s.n} disabled={s.n === 1}>→ السابق</button>
+          <button class="btn btn-amber nextBtn" data-cur={s.n} disabled={s.n === 5}>التالي ←</button>
+        </div>
+      </div>
+    </div>
+  ))}
+</div>
+
+<script>
+  const tabs = document.querySelectorAll('.tab');
+  const panels = document.querySelectorAll('.step-panel');
+  function go(n) {
+    tabs.forEach(t => t.classList.toggle('active', t.getAttribute('data-step') === String(n)));
+    panels.forEach(p => p.classList.toggle('active', p.getAttribute('data-panel') === String(n)));
+  }
+  tabs.forEach(t => t.addEventListener('click', () => go(t.getAttribute('data-step'))));
+  document.querySelectorAll('.nextBtn').forEach(b =>
+    b.addEventListener('click', () => go(Number(b.getAttribute('data-cur')) + 1)));
+  document.querySelectorAll('.prevBtn').forEach(b =>
+    b.addEventListener('click', () => go(Number(b.getAttribute('data-cur')) - 1)));
+</script>

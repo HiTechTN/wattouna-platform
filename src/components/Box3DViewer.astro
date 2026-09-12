@@ -1,0 +1,106 @@
+---
+---
+<div class="viewer-wrap">
+  <div class="stage" id="stage3d" aria-label="PBX-36 interactive 3D box — drag to rotate">
+    <div class="scene" id="scene3d">
+      <div class="face front">
+        <div class="lcd" id="lcd"><span>PBX-36 ULTRA</span><span id="lcdVolts">36.0V</span></div>
+        <div class="panel-row">
+          <span class="led" id="ledGreen"></span><span>RUN</span>
+          <span class="led" id="ledAmber"></span><span>SOL</span>
+          <span class="led" id="ledRed"></span><span>CUT</span>
+        </div>
+        <div class="panel-row">
+          <button class="push-btn on" id="btnOn">ON</button>
+          <button class="push-btn off" id="btnOff">OFF</button>
+          <span class="port">USB-C 100W</span>
+          <span class="port">USB-C 18W</span>
+        </div>
+        <div class="panel-row">
+          <span class="port">🔌 220V</span>
+          <span class="port">☀️ XT60 SOL</span>
+          <span class="port">12V⎓10A</span>
+        </div>
+      </div>
+      <div class="face back">PBX-36 • 10S RECYCLED E-SCOOTER CELLS • 0.00mA STANDBY</div>
+      <div class="face right"></div>
+      <div class="face left"></div>
+      <div class="face top"></div>
+      <div class="face bottom"></div>
+    </div>
+    <div class="hint">🖱️ اسحب للتدوير • انقر ON/OFF للتشغيل</div>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">📦 الواجهة الأمامية — تفاعلية</h3>
+    <div class="controls-list">
+      <ul>
+        <li>🔋 <b>شاشة الفولتميتر:</b> تعرض جهد البطارية لحظيًا (36.0V عند التشغيل). <span class="pill cyan">LCD</span></li>
+        <li>🟢 <b>زر ON:</b> يشغّل الشاشة ومؤشر RUN الأخضر ومؤشر الشحن الشمسي.</li>
+        <li>🔴 <b>زر OFF:</b> فصل حقيقي بتيار <b dir="ltr">0.00mA</b> — جرّب، ستنطفئ كل المؤشرات.</li>
+        <li>⚡ <b>المنافذ:</b> USB-C مزدوج + 12V/10A + سوكيت 220V + دخل شمسي XT60.</li>
+        <li>🖱️ <b>التدوير:</b> اسحب بالفأرة أو اللمس لتدوير الصندوق على المحورين X و Y.</li>
+      </ul>
+    </div>
+    <div style="display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap">
+      <button class="btn btn-cyan" id="btnOn2">تشغيل ON</button>
+      <button class="btn btn-ghost" id="btnOff2">إطفاء OFF</button>
+      <button class="btn btn-ghost" id="btnResetView">🔄 إعادة العرض</button>
+    </div>
+    <p style="color:var(--muted);font-size:.85rem">الحالة: <b id="powerState" style="color:var(--green)">يعمل — 0.00mA عند الإطفاء</b></p>
+  </div>
+</div>
+
+<script>
+  const stage = document.getElementById('stage3d');
+  const scene = document.getElementById('scene3d');
+  const lcd = document.getElementById('lcd');
+  const lcdVolts = document.getElementById('lcdVolts');
+  const ledG = document.getElementById('ledGreen');
+  const ledA = document.getElementById('ledAmber');
+  const ledR = document.getElementById('ledRed');
+  const state = document.getElementById('powerState');
+
+  let rotX = -12, rotY = 24, power = true;
+  let dragging = false, sx = 0, sy = 0;
+
+  function apply() {
+    if (scene) scene.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+  }
+  function setPower(on) {
+    power = on;
+    lcd?.classList.toggle('off', !on);
+    if (lcdVolts) lcdVolts.textContent = on ? '36.0V' : '--.-V';
+    ledG?.classList.toggle('on-green', on);
+    ledA?.classList.toggle('on-amber', on);
+    ledR?.classList.toggle('on-red', !on);
+    if (state) {
+      state.textContent = on ? 'يعمل — اسحب، أو اضغط OFF لاختبار 0.00mA' : 'مطفأ تمامًا — سحب 0.00mA ✅';
+      state.style.color = on ? 'var(--green)' : 'var(--amber)';
+    }
+  }
+
+  stage?.addEventListener('pointerdown', (e) => {
+    dragging = true; sx = e.clientX; sy = e.clientY;
+    stage.setPointerCapture(e.pointerId);
+  });
+  stage?.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    rotY += (e.clientX - sx) * 0.5;
+    rotX -= (e.clientY - sy) * 0.4;
+    rotX = Math.max(-70, Math.min(70, rotX));
+    sx = e.clientX; sy = e.clientY;
+    apply();
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(ev =>
+    stage?.addEventListener(ev, () => (dragging = false))
+  );
+
+  document.getElementById('btnOn')?.addEventListener('click', (e) => { e.stopPropagation(); setPower(true); });
+  document.getElementById('btnOff')?.addEventListener('click', (e) => { e.stopPropagation(); setPower(false); });
+  document.getElementById('btnOn2')?.addEventListener('click', () => setPower(true));
+  document.getElementById('btnOff2')?.addEventListener('click', () => setPower(false));
+  document.getElementById('btnResetView')?.addEventListener('click', () => { rotX = -12; rotY = 24; apply(); });
+
+  apply();
+  setPower(true);
+</script>
