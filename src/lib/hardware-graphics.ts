@@ -1,4 +1,16 @@
-function defs(u) {
+/* Wattouna skeuomorphic hardware graphics — TypeScript source of truth.
+   Compiled to public/vendor/hardware-graphics.js via:
+     npx esbuild src/lib/hardware-graphics.ts --format=esm --outfile=public/vendor/hardware-graphics.js
+   (vendor bundle is what the workbench loads: Astro passes inline imports
+   through unbundled, so absolute /vendor/*.js ESM is the loadable pattern.) */
+
+export type PartType =
+  | 'battery' | 'mppt' | 'latch' | 'wago'
+  | 'meter' | 'button' | 'buck' | 'usb';
+
+type Renderer = (u: string | number) => string;
+
+function defs(u: string | number): string {
   return `<defs>
     <linearGradient id="wrap${u}" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#3b82f6"/><stop offset=".5" stop-color="#1d4ed8"/><stop offset="1" stop-color="#1e3a8a"/>
@@ -20,13 +32,14 @@ function defs(u) {
     </linearGradient>
   </defs>`;
 }
-const R = {
+
+const R: Record<string, Renderer> = {
   battery(u) {
     return `${defs(u)}
     <rect x="6" y="12" width="122" height="80" rx="7" fill="url(#wrap${u})" stroke="#0c1a3a" stroke-width="2"/>
     <line x1="46" y1="14" x2="46" y2="90" stroke="#0c1a3a" stroke-width="2" opacity=".6"/>
     <polygon points="20,14 34,14 24,90 14,90" fill="#fff" opacity=".12"/>
-    <text x="94" y="86" font-size="7" fill="#bfdbfe" font-family="monospace">PBX\u202210.4Ah</text>
+    <text x="94" y="86" font-size="7" fill="#bfdbfe" font-family="monospace">PBX•10.4Ah</text>
     <line x1="88" y1="14" x2="88" y2="90" stroke="#0c1a3a" stroke-width="2" opacity=".6"/>
     <rect x="12" y="22" width="104" height="7" rx="3" fill="url(#metal${u})" opacity=".9"/>
     <rect x="12" y="33" width="104" height="7" rx="3" fill="url(#metal${u})" opacity=".9"/>
@@ -36,14 +49,14 @@ const R = {
     <line x1="12" y1="47" x2="116" y2="47" stroke="#475569" stroke-width="1"/>
     <polygon points="20,62 32,62 26,74" fill="#facc15" stroke="#000" stroke-width="1"/>
     <text x="36" y="72" font-size="11" font-weight="bold" fill="#fefce8" font-family="monospace">36V 10S</text>
-    <text x="12" y="86" font-size="7" fill="#bfdbfe" font-family="monospace">Li-ion 10.4Ah \u2022 336Wh</text>
+    <text x="12" y="86" font-size="7" fill="#bfdbfe" font-family="monospace">Li-ion 10.4Ah • 336Wh</text>
     <rect x="132" y="38" width="28" height="26" rx="4" fill="#facc15" stroke="#a16207" stroke-width="2"/>
     <circle cx="140" cy="51" r="3.4" fill="#fbbf24" stroke="#92400e" stroke-width="1.4"/>
     <circle cx="152" cy="51" r="3.4" fill="#fbbf24" stroke="#92400e" stroke-width="1.4"/>
-    <text x="132" y="74" font-size="7" fill="#fde68a" font-family="monospace">XT60 \u2640</text>`;
+    <text x="132" y="74" font-size="7" fill="#fde68a" font-family="monospace">XT60 ♀</text>`;
   },
   mppt(u) {
-    let fins = "";
+    let fins = '';
     for (let i = 0; i < 6; i++) fins += `<rect x="${14 + i * 9}" y="16" width="6" height="30" rx="2" fill="url(#metal${u})" stroke="#475569"/>`;
     return `${defs(u)}
     <rect x="6" y="10" width="156" height="84" rx="5" fill="url(#pcb${u})" stroke="#0b1e4b" stroke-width="2"/>
@@ -60,11 +73,11 @@ const R = {
     <circle cx="134" cy="51" r="2.4" fill="#052e16"/><line x1="132.6" y1="51" x2="135.4" y2="51" stroke="#86efac" stroke-width=".8"/><circle cx="142" cy="51" r="2.4" fill="#052e16"/><line x1="140.6" y1="51" x2="143.4" y2="51" stroke="#86efac" stroke-width=".8"/>
     <line x1="12" y1="66" x2="70" y2="66" stroke="#93c5fd" stroke-width="1" opacity=".7"/>
     <line x1="12" y1="72" x2="50" y2="72" stroke="#93c5fd" stroke-width="1" opacity=".5"/>
-    <text x="12" y="86" font-size="8" fill="#dbeafe" font-family="monospace">LTC3780 \u2022 MPPT 160W</text>
+    <text x="12" y="86" font-size="8" fill="#dbeafe" font-family="monospace">LTC3780 • MPPT 160W</text>
     <circle cx="152" cy="82" r="4" fill="#22c55e"><animate attributeName="opacity" values="1;.4;1" dur="1.6s" repeatCount="indefinite"/></circle>`;
   },
   latch(u) {
-    let ribs = "";
+    let ribs = '';
     for (let i = 0; i < 9; i++) ribs += `<line x1="${16 + i * 7}" y1="14" x2="${16 + i * 7}" y2="62" stroke="#020617" stroke-width="3"/>`;
     return `${defs(u)}
     <rect x="10" y="10" width="72" height="56" rx="4" fill="#1e293b" stroke="#000" stroke-width="2"/>
@@ -96,7 +109,7 @@ const R = {
     <line x1="52" y1="64" x2="52" y2="72" stroke="#7c2d12" stroke-width="2"/>
     <line x1="84" y1="64" x2="84" y2="72" stroke="#7c2d12" stroke-width="2"/>
     <line x1="116" y1="64" x2="116" y2="72" stroke="#7c2d12" stroke-width="2"/>
-    <text x="44" y="97" font-size="8" fill="#475569" font-family="monospace">WAGO 221 \u2022 Cu bus</text>`;
+    <text x="44" y="97" font-size="8" fill="#475569" font-family="monospace">WAGO 221 • Cu bus</text>`;
   },
   meter(u) {
     return `${defs(u)}
@@ -145,16 +158,14 @@ const R = {
     <circle cx="130" cy="38" r="2" fill="#fbbf24"/><circle cx="138" cy="38" r="2" fill="#fbbf24"/>
     <circle cx="130" cy="48" r="2" fill="#fbbf24"/><circle cx="138" cy="48" r="2" fill="#fbbf24"/>
     <line x1="20" y1="66" x2="60" y2="66" stroke="#c4b5fd" stroke-width="1" opacity=".7"/>
-    <text x="20" y="78" font-size="8" fill="#ddd6fe" font-family="monospace">IP2368 \u2022 100W PD</text>`;
-  }
+    <text x="20" y="78" font-size="8" fill="#ddd6fe" font-family="monospace">IP2368 • 100W PD</text>`;
+  },
 };
-function renderPart(type, uid) {
+
+export function renderPart(type: string, uid?: string | number): string {
   const fn = R[type];
   if (!fn) return `<rect x="8" y="8" width="152" height="88" rx="8" fill="#16223e"/>`;
   return `<svg viewBox="0 0 168 104" width="100%" height="104" aria-hidden="true">${fn(uid || Math.floor(Math.random() * 1e6))}</svg>`;
 }
-const PART_TYPES = Object.keys(R);
-export {
-  PART_TYPES,
-  renderPart
-};
+
+export const PART_TYPES: string[] = Object.keys(R);

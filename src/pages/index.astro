@@ -6,15 +6,29 @@ import AssemblyGuide from '../components/AssemblyGuide.astro';
 import DownloadHub from '../components/DownloadHub.astro';
 import SmartSourcingRadar from '../components/SmartSourcingRadar.astro';
 
+const thumb = (inner: string) =>
+  `<svg viewBox="0 0 40 40" width="38" height="38" aria-hidden="true"><rect x="2" y="2" width="36" height="36" rx="9" fill="var(--surface2)" stroke="var(--border)"/>${inner}</svg>`;
+
+const thumbs: Record<string, string> = {
+  mppt: thumb('<circle cx="20" cy="18" r="7" fill="#fbbf24"/><rect x="12" y="28" width="16" height="6" rx="2" fill="#1e40af" stroke="#93c5fd"/>'),
+  usb: thumb('<rect x="11" y="15" width="18" height="8" rx="4" fill="#94a3b8"/><rect x="14" y="25" width="12" height="5" fill="#2563eb"/>'),
+  mosfet: thumb('<rect x="15" y="8" width="10" height="16" rx="2" fill="#0f172a" stroke="#64748b"/><line x1="18" y1="24" x2="18" y2="30" stroke="#cbd5e1" stroke-width="2"/><line x1="22" y1="24" x2="22" y2="30" stroke="#cbd5e1" stroke-width="2"/>'),
+  wago: thumb('<rect x="10" y="14" width="20" height="12" rx="3" fill="#e2e8f0" opacity=".85"/><rect x="13" y="26" width="5" height="8" rx="2" fill="#f97316"/><rect x="22" y="26" width="5" height="8" rx="2" fill="#f97316"/>'),
+  batt: thumb('<rect x="9" y="13" width="22" height="14" rx="3" fill="#1d4ed8"/><rect x="24" y="17" width="6" height="6" rx="1" fill="#facc15"/>'),
+  buck: thumb('<rect x="10" y="12" width="20" height="16" rx="3" fill="#111827" stroke="#4b5563"/><line x1="13" y1="17" x2="27" y2="17" stroke="#374151" stroke-width="2"/><line x1="13" y1="22" x2="27" y2="22" stroke="#374151" stroke-width="2"/>'),
+  inv: thumb('<rect x="12" y="12" width="16" height="16" rx="3" fill="none" stroke="#f59e0b" stroke-width="2"/><path d="M 17 20 l 3 4 l -3 0 l 3 4" stroke="#f59e0b" stroke-width="2" fill="none"/>'),
+  fuse: thumb('<rect x="12" y="16" width="16" height="8" rx="2" fill="#38bdf8" stroke="#0c4a6e"/><line x1="8" y1="20" x2="12" y2="20" stroke="#94a3b8" stroke-width="2"/><line x1="28" y1="20" x2="32" y2="20" stroke="#94a3b8" stroke-width="2"/>'),
+};
+
 const bom = [
-  { part: 'LTC3780 وحدة رفع MPPT', use: 'شحن شمسي 18–36V → ‏42V', spec: 'حتى 160W / كفاءة ~90%', tag: 'شمسي', cls: 'amber' },
-  { part: 'IP2368 وحدة USB-C PD', use: 'خرج 100W للابتوب + 18W للهاتف', spec: 'PD3.0 / QC', tag: 'مخارج', cls: 'cyan' },
-  { part: 'IRF4905 ‏P-MOSFET + TL431', use: 'إغلاق ذاتي وفصل عند 31.00V', spec: 'تسريب 0.00mA', tag: 'حماية', cls: 'green' },
-  { part: 'WAGO 221 موصلات سريعة', use: 'توصيل بدون لحام', spec: '10 قطع / حتى 32A', tag: 'تجميع', cls: 'cyan' },
-  { part: 'بطارية سكوتر 10S مُعاد تدويرها', use: 'التخزين الرئيسي 36V / صافي 336Wh', spec: '42V مشحونة / فصل 31V', tag: 'تخزين', cls: 'green' },
-  { part: 'خافض 12V / 10A', use: 'راوتر + إضاءة LED', spec: '120W مستمر', tag: 'مخارج', cls: 'cyan' },
-  { part: 'إنفرتر Mini ‏220V', use: 'تلفاز وأجهزة صغيرة (60W)', spec: 'موجة معدلة / 150W ذروة', tag: 'مخارج', cls: 'amber' },
-  { part: 'فيوز 30A + ضفيرة XT60 + فولتميتر', use: 'حماية وواجهة أمامية', spec: 'قياس لحظي للجهد', tag: 'أمان', cls: 'green' },
+  { part: 'LTC3780 وحدة رفع MPPT', use: 'شحن شمسي 18–36V → ‏42V', spec: 'حتى 160W / كفاءة ~90%', tag: 'شمسي', cls: 'amber', icon: 'mppt' },
+  { part: 'IP2368 وحدة USB-C PD', use: 'خرج 100W للابتوب + 18W للهاتف', spec: 'PD3.0 / QC', tag: 'مخارج', cls: 'cyan', icon: 'usb' },
+  { part: 'IRF4905 ‏P-MOSFET + TL431', use: 'إغلاق ذاتي وفصل عند 31.00V', spec: 'تسريب 0.00mA', tag: 'حماية', cls: 'green', icon: 'mosfet' },
+  { part: 'WAGO 221 موصلات سريعة', use: 'توصيل بدون لحام', spec: '10 قطع / حتى 32A', tag: 'تجميع', cls: 'cyan', icon: 'wago' },
+  { part: 'بطارية سكوتر 10S مُعاد تدويرها', use: 'التخزين الرئيسي 36V / صافي 336Wh', spec: '42V مشحونة / فصل 31V', tag: 'تخزين', cls: 'green', icon: 'batt' },
+  { part: 'خافض 12V / 10A', use: 'راوتر + إضاءة LED', spec: '120W مستمر', tag: 'مخارج', cls: 'cyan', icon: 'buck' },
+  { part: 'إنفرتر Mini ‏220V', use: 'تلفاز وأجهزة صغيرة (60W)', spec: 'موجة معدلة / 150W ذروة', tag: 'مخارج', cls: 'amber', icon: 'inv' },
+  { part: 'فيوز 30A + ضفيرة XT60 + فولتميتر', use: 'حماية وواجهة أمامية', spec: 'قياس لحظي للجهد', tag: 'أمان', cls: 'green', icon: 'fuse' },
 ];
 ---
 <BaseLayout>
@@ -107,10 +121,11 @@ const bom = [
     </div>
     <div class="card bom-wrap">
       <table class="bom">
-        <thead><tr><th>المكوّن</th><th>الوظيفة</th><th>المواصفة</th><th>الفئة</th></tr></thead>
+        <thead><tr><th></th><th>المكوّن</th><th>الوظيفة</th><th>المواصفة</th><th>الفئة</th></tr></thead>
         <tbody>
           {bom.map((r) => (
             <tr>
+              <td><Fragment set:html={thumbs[r.icon]} /></td>
               <td><b>{r.part}</b></td>
               <td style="color:var(--muted)">{r.use}</td>
               <td dir="ltr" style="text-align:left;color:var(--muted)">{r.spec}</td>

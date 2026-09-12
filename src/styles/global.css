@@ -17,60 +17,6 @@
   --accent2: #38bdf8;
 }
 
-/* ---- light-clean ---- */
-[data-theme="light-clean"] {
-  --bg: #f8fafc;
-  --card: #ffffff;
-  --border: #cbd5e1;
-  --amber: #b45309;
-  --cyan: #2563eb;
-  --green: #15803d;
-  --text: #0f172a;
-  --muted: #475569;
-  --surface: #f1f5f9;
-  --surface2: #e2e8f0;
-  --ink: #0f172a;
-  --canvas: #eef2f7;
-  --accent: #2563eb;
-  --accent2: #b45309;
-}
-
-/* ---- cyber-oled ---- */
-[data-theme="cyber-oled"] {
-  --bg: #000000;
-  --card: #0a0a0f;
-  --border: #2a2a3a;
-  --amber: #8b5cf6;
-  --cyan: #10b981;
-  --green: #10b981;
-  --text: #f4f4f5;
-  --muted: #a1a1aa;
-  --surface: #101018;
-  --surface2: #1a1a26;
-  --ink: #000000;
-  --canvas: #050508;
-  --accent: #8b5cf6;
-  --accent2: #10b981;
-}
-
-/* ---- emerald-eco ---- */
-[data-theme="emerald-eco"] {
-  --bg: #0c1a14;
-  --card: #12241b;
-  --border: #2d4a3a;
-  --amber: #d97706;
-  --cyan: #34d399;
-  --green: #22c55e;
-  --text: #ecfdf5;
-  --muted: #9db8ad;
-  --surface: #10241a;
-  --surface2: #1a3328;
-  --ink: #071009;
-  --canvas: #08130d;
-  --accent: #22c55e;
-  --accent2: #d97706;
-}
-
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 html, body {
@@ -226,7 +172,7 @@ a:hover { text-decoration: underline; }
 .stat b { display: block; font-size: 1.25rem; }
 .stat span { color: var(--muted); font-size: .82rem; }
 .hero-card {
-  background: linear-gradient(180deg, rgba(13,21,39,.95), rgba(13,21,39,.7));
+  background: linear-gradient(180deg, var(--card), var(--surface));
   border: 1px solid var(--border);
   border-radius: 22px;
   padding: 1.4rem;
@@ -379,7 +325,7 @@ input[type="range"] { width: 100%; accent-color: var(--amber); }
 
 /* BOM */
 .bom-wrap { overflow-x: auto; }
-table.bom { width: 100%; border-collapse: collapse; font-size: .92rem; min-width: 680px; }
+table.bom { width: 100%; border-collapse: collapse; font-size: .92rem; min-width: 720px; }
 table.bom th, table.bom td { padding: .75rem .8rem; border-bottom: 1px solid var(--border); text-align: right; }
 table.bom th { color: var(--muted); font-weight: 600; font-size: .82rem; background: rgba(255,255,255,.02); }
 table.bom tr:hover td { background: rgba(56,189,248,.05); }

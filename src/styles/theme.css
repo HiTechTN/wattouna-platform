@@ -1,0 +1,195 @@
+/* Wattouna Design System — contrast & typography tokens.
+   Imported AFTER global.css so these tokens win the cascade.
+   dark-solar refines the default; light-clean targets WCAG AAA. */
+
+:root {
+  --bg: #060b14;
+  --card: #0d1726;
+  --border: #1e2d42;
+  --amber: #f59e0b;
+  --cyan: #38bdf8;
+  --green: #22c55e;
+  --text: #f8fafc;
+  --muted: #94a3b8;
+  --surface: #0a1322;
+  --surface2: #14243a;
+  --ink: #020409;
+  --canvas: #050a12;
+  --accent: #f59e0b;
+  --accent2: #38bdf8;
+  --shadow: 0 20px 60px rgba(0, 0, 0, .45);
+  --font-display: "Alexandria", "Readex Pro", "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+/* ---- light-clean : strict WCAG AAA ---- */
+[data-theme="light-clean"] {
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --border: #e2e8f0;
+  --amber: #d97706;
+  --cyan: #2563eb;
+  --green: #15803d;
+  --text: #0f172a;
+  --muted: #475569;
+  --surface: #f1f5f9;
+  --surface2: #e2e8f0;
+  --ink: #0f172a;
+  --canvas: #eef2f7;
+  --accent: #2563eb;
+  --accent2: #d97706;
+  --shadow: 0 12px 32px rgba(15, 23, 42, .1);
+}
+
+/* ---- cyber-oled ---- */
+[data-theme="cyber-oled"] {
+  --bg: #000000;
+  --card: #0a0a0f;
+  --border: #2a2a3a;
+  --amber: #8b5cf6;
+  --cyan: #10b981;
+  --green: #10b981;
+  --text: #f4f4f5;
+  --muted: #a1a1aa;
+  --surface: #101018;
+  --surface2: #1a1a26;
+  --ink: #000000;
+  --canvas: #050508;
+  --accent: #8b5cf6;
+  --accent2: #10b981;
+  --shadow: 0 20px 60px rgba(0, 0, 0, .7);
+}
+
+/* ---- emerald-eco ---- */
+[data-theme="emerald-eco"] {
+  --bg: #0c1a14;
+  --card: #12241b;
+  --border: #2d4a3a;
+  --amber: #d97706;
+  --cyan: #34d399;
+  --green: #22c55e;
+  --text: #ecfdf5;
+  --muted: #9db8ad;
+  --surface: #10241a;
+  --surface2: #1a3328;
+  --ink: #071009;
+  --canvas: #08130d;
+  --accent: #22c55e;
+  --accent2: #d97706;
+  --shadow: 0 20px 60px rgba(0, 0, 0, .5);
+}
+
+/* ---- contrast hardening: no white-on-white / dark-on-dark ---- */
+.card, .step-meta, .metric, .stat, .appliance, .dl-note {
+  box-shadow: var(--shadow);
+}
+
+.btn-amber {
+  color: #1a1000;
+}
+[data-theme="light-clean"] .btn-amber {
+  color: #fffbeb;
+  background: linear-gradient(135deg, #d97706, #b45309);
+}
+.btn-cyan {
+  color: #04121f;
+}
+[data-theme="light-clean"] .btn-cyan {
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+}
+.btn-ghost {
+  color: var(--text);
+  background: var(--card);
+}
+
+/* form fields always use theme tokens */
+input, select, textarea {
+  color: var(--text);
+}
+input::placeholder, textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+/* pills & badges keep contrast on light */
+[data-theme="light-clean"] .pill {
+  background: var(--surface);
+}
+[data-theme="light-clean"] .badge.ok {
+  background: rgba(21, 128, 61, .12);
+  border-color: rgba(21, 128, 61, .5);
+  color: #15803d;
+}
+[data-theme="light-clean"] .badge.warn {
+  background: rgba(217, 119, 6, .12);
+  border-color: rgba(217, 119, 6, .5);
+  color: #b45309;
+}
+
+/* nav links readable in every theme */
+.nav-links a {
+  color: var(--text);
+}
+
+/* tables */
+table.bom th {
+  color: var(--muted);
+}
+table.bom td {
+  color: var(--text);
+}
+
+/* 7-segment neon meter (profile impact counters) */
+.meter-7seg {
+  font-family: var(--font-mono);
+  background: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: .5rem 1rem;
+  letter-spacing: .06em;
+  text-shadow: 0 0 12px currentColor;
+  white-space: nowrap;
+}
+.meter-7seg.amber { color: var(--amber); }
+.meter-7seg.green { color: var(--green); }
+.meter-7seg.cyan { color: var(--cyan); }
+
+/* project card hover micro-interactions */
+.lift {
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.lift:hover {
+  transform: translateY(-4px);
+  border-color: var(--amber);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, .4), 0 0 0 1px var(--amber);
+}
+
+/* PCB circuit-trace banner pattern */
+.pcb-banner {
+  background-color: var(--surface);
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 22px, rgba(56, 189, 248, .07) 22px 23px),
+    repeating-linear-gradient(90deg, transparent 0 22px, rgba(56, 189, 248, .07) 22px 23px),
+    radial-gradient(circle at 12px 12px, rgba(245, 158, 11, .25) 2px, transparent 2.5px),
+    radial-gradient(circle at 34px 34px, rgba(56, 189, 248, .22) 2px, transparent 2.5px);
+  background-size: 44px 44px, 44px 44px, 44px 44px, 44px 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* wire hover glow (workbench SVG) */
+#wbSvg path:hover {
+  stroke-width: 6;
+  filter: drop-shadow(0 0 6px currentColor);
+}
+.wb-term:hover {
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, .35), 0 0 14px var(--amber);
+  border-color: var(--amber);
+}
+
+/* focus visibility (keyboard / a11y) */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
