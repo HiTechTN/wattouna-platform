@@ -1,11 +1,12 @@
 ---
 import fs from 'node:fs';
+import path from 'node:path';
 
-const DL = new URL('../../public/downloads/', import.meta.url);
+const DL = path.join(process.cwd(), 'public', 'downloads');
 
 function sizeOf(file: string): string {
   try {
-    const b = fs.statSync(new URL(file, DL)).size;
+    const b = fs.statSync(path.join(DL, file)).size;
     if (b >= 1048576) return (b / 1048576).toFixed(2) + ' MB';
     if (b >= 1024) return (b / 1024).toFixed(1) + ' KB';
     return b + ' B';
