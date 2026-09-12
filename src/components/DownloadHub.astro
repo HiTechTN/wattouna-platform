@@ -1,11 +1,26 @@
 ---
+import fs from 'node:fs';
+
+const DL = new URL('../../public/downloads/', import.meta.url);
+
+function sizeOf(file: string): string {
+  try {
+    const b = fs.statSync(new URL(file, DL)).size;
+    if (b >= 1048576) return (b / 1048576).toFixed(2) + ' MB';
+    if (b >= 1024) return (b / 1024).toFixed(1) + ' KB';
+    return b + ' B';
+  } catch {
+    return '—';
+  }
+}
+
 const files = [
   {
     name: 'هيكل الصندوق — Chassis',
     file: 'pbx36-chassis.stl',
     href: '/downloads/pbx36-chassis.stl',
     format: 'STL',
-    meta: 'نموذج ثلاثي الأبعاد قابل للطباعة — جسم علبة PBX-36',
+    meta: 'نموذج حقيقي 200×140×80مم — تم توليده والتحقق منه (111 solid manifold)',
     icon: '📦',
     cls: 'amber',
   },
@@ -14,7 +29,7 @@ const files = [
     file: 'pbx36-front-panel.stl',
     href: '/downloads/pbx36-front-panel.stl',
     format: 'STL',
-    meta: 'نموذج ثلاثي الأبعاد قابل للطباعة — واجهة الشاشة والمنافذ',
+    meta: 'فتحات دقيقة: أزرار 16مم، شاشة 45×26، USB، XT60، سوكيت 220V',
     icon: '🖥️',
     cls: 'cyan',
   },
@@ -23,27 +38,36 @@ const files = [
     file: 'pbx36-wiring-guide.pdf',
     href: '/downloads/pbx36-wiring-guide.pdf',
     format: 'PDF',
-    meta: 'مخطط عالي الدقة — التوصيلات الكاملة خطوة بخطوة',
+    meta: 'مخطط شعاعي A4 من صفحتين — ألوان الأسلاك + جدول التوصيلات',
     icon: '📐',
     cls: 'green',
   },
-];
+  {
+    name: 'الحزمة الكاملة — ZIP',
+    file: 'pbx36-complete-package.zip',
+    href: '/downloads/pbx36-complete-package.zip',
+    format: 'ZIP',
+    meta: 'كل الملفات + BOM.csv + README في أرشيف واحد مضغوط',
+    icon: '🎁',
+    cls: 'amber',
+  },
+].map((f) => ({ ...f, size: sizeOf(f.file) }));
 ---
 <div class="grid-3">
   {files.map((f) => (
     <div class="card dl-card">
       <div class="dl-icon" aria-hidden="true">{f.icon}</div>
-      <span class={`pill ${f.cls}`} dir="ltr">{f.format}</span>
+      <div class="dl-tags"><span class={`pill ${f.cls}`} dir="ltr">{f.format}</span><span class="pill" dir="ltr">{f.size}</span></div>
       <h3>{f.name}</h3>
       <p class="dl-meta">{f.meta}</p>
       <code class="dl-file" dir="ltr">{f.file}</code>
       <a class="btn btn-amber dl-btn" href={f.href} download={f.file}>
-        ⬇️ تحميل {f.format}
+        ⬇️ تحميل {f.format} ({f.size})
       </a>
     </div>
   ))}
 </div>
-<p class="dl-note">🔓 كل الملفات عتاد مفتوح برخصة MIT — حمّل، اطبع، عدّل، وشارك. اطبع الـ STL بإعدادات <b dir="ltr">0.2mm / 30% infill / PETG</b> الموصى بها.</p>
+<p class="dl-note">✅ ملفات STL حقيقية مولّدة رياضيًا وتم التحقق من كل solid — تفتح مباشرة في PrusaSlicer وCura وBambu Studio. 🔓 عتاد مفتوح MIT — اطبع الـ STL بإعدادات <b dir="ltr">0.2mm / 30% infill / PETG</b>.</p>
 
 <style>
   .dl-card {
@@ -58,6 +82,7 @@ const files = [
     box-shadow: 0 14px 40px rgba(0, 0, 0, .45);
   }
   .dl-card h3 { margin: 0; font-size: 1.05rem; }
+  .dl-tags { display: flex; gap: .4rem; }
   .dl-icon {
     font-size: 2rem;
     width: 56px;

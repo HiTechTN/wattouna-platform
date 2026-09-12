@@ -1,0 +1,359 @@
+---
+---
+<!-- Floating toggle -->
+<button id="waiFab" class="wai-fab" aria-label="مستشار واطنا الذكي" aria-expanded="false">
+  <span class="wai-fab-icon">☀️</span>
+  <span class="wai-fab-badge">مستشار واطنا الذكي 🤖</span>
+  <span class="wai-fab-dot" id="waiDot" hidden>1</span>
+</button>
+
+<!-- Chat panel -->
+<div id="waiPanel" class="wai-panel" role="dialog" aria-label="مستشار واطنا الذكي" hidden>
+  <div class="wai-head">
+    <div class="wai-head-id">
+      <span class="wai-avatar">🤖</span>
+      <span><b>مستشار واطنا الذكي</b><small id="waiStatus">● متصل — محرك محلي فوري</small></span>
+    </div>
+    <div class="wai-head-btns">
+      <button id="waiSound" aria-label="الصوت">🔔</button>
+      <button id="waiClose" aria-label="إغلاق">✕</button>
+    </div>
+  </div>
+  <div id="waiMsgs" class="wai-msgs" aria-live="polite"></div>
+  <div class="wai-chips" id="waiChips">
+    <button>💡 كيفاش تخدم دارة 0.00mA؟</button>
+    <button>🔋 منين نشري بطارية سكوتر في تونس وبقداش؟</button>
+    <button>☀️ قداش يشدني مودام وإنارة وتلفزة؟</button>
+    <button>⚠️ العلبة ما تحبش تخدم كي ننزل START!</button>
+  </div>
+  <form id="waiForm" class="wai-input">
+    <input id="waiText" type="text" placeholder="اسألني أي شيء عن PBX-36…" autocomplete="off" maxlength="500" />
+    <button type="submit" aria-label="إرسال">➤</button>
+  </form>
+</div>
+
+<script>
+(function () {
+  var fab = document.getElementById('waiFab');
+  var panel = document.getElementById('waiPanel');
+  var msgs = document.getElementById('waiMsgs');
+  var form = document.getElementById('waiForm');
+  var text = document.getElementById('waiText');
+  var chips = document.getElementById('waiChips');
+  var dot = document.getElementById('waiDot');
+  var btnSound = document.getElementById('waiSound');
+  var statusEl = document.getElementById('waiStatus');
+  if (!fab || !panel) return;
+
+  var sound = true;
+  try { sound = localStorage.getItem('wattouna-ai-sound') !== 'off'; } catch (e) {}
+  btnSound.textContent = sound ? '🔔' : '🔕';
+
+  function blip(freq) {
+    if (!sound) return;
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      var ctx = new Ctx();
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = freq || 660;
+      g.gain.setValueAtTime(0.06, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+      o.start(); o.stop(ctx.currentTime + 0.2);
+    } catch (e) {}
+  }
+
+  /* ---------------- knowledge base (Tunisian Arabic, expert) ---------------- */
+  var KB = [
+    { k: ['0.00', 'standby', 'تسريب', 'فارغ', 'تستهلك', 'سحب', 'صفر', 'zero', 'veille', 'كيفاش تخدم الدارة', 'داره', 'دارة اللاتش', 'latch', 'تمسك'],
+      r: '🔌 <b>دارة 0.00mA كيفاش تخدم؟</b><br>السر هو <b>IRF4905 P-MOSFET</b> كـ قاطع رئيسي: كي تنزل <b>START</b> (زر أخضر NO) يتعدى تيار صغير يشغّل الموسفت، والموسفت بدورو <b>يمسك روحو (Latch)</b> عبر الترانزستورات 2N3906 + 2N2222A.<br>كي يطيح الجهد تحت <b>31.00V</b>، الـ <b>TL431</b> يفلت، الموسفت يتسكر فيزيائيًا والحمل <b>يتعزل بالكامل</b> — حتى الميكرو أمبير ما يتعداش، يعني <b>0.00mA حقيقية</b> تقيسها بالملتيميتر. موش Sleep Mode، موش خدعة برمجية: فصل كهربائي كامل. ⚡' },
+    { k: ['31', 'tl431', 'عتبة', 'threshold', 'seuil', 'r1', 'rv1', 'r2', '2.495', 'vref', 'مقاومة', 'تتعاير', 'potentiometre'],
+      r: '🎯 <b>عتبة الفصل 31.00V ± 0.05V</b><br>الـ TL431 عندو مرجع داخلي <b>Vref = 2.495V</b>. المقسم: <b>R1=82kΩ + RV1=20kΩ (trimmer) فوق، R2=8.2kΩ لوطا</b>.<br>الحسبة: <b>Vtrip = 2.495 × (1 + 102k/8.2k) = 31.00V</b> ✅<br>للمعايرة: اربط alimentation variable، نقص الجهد بشوية بشوية ودوّر الـ RV1 حتى تفصل الدارة بالضبط على 31.00V. الـ RV1 موجود باش تعوّض تفاوت المقاومات 1%.' },
+    { k: ['hysteresis', 'rhys', '2.2', 'ترنح', 'تقطع', 'تولع وتطفى', 'chatter', 'snap', 'نافذة'],
+      r: '🔁 <b>Hysteresis — نافذة 0.45V ضد الترنح</b><br>مقاومة <b>Rhys = 2.2MΩ</b> راجعة من الخرج للمدخل تعمل Snap-Action: الدارة تفصل على <b>31.00V</b> وما ترجعش تخدم كان كي يطلع الجهد فوق <b>~31.45V</b>.<br>بلاشها، الموسفت يقعد يولع ويطفى بسرعة (chattering) قرب العتبة ويسخن حتى يتحرق. إذا لاحظت تكتكة سريعة، تفقد الـ 2.2MΩ أول حاجة.' },
+    { k: ['irf4905', 'mosfet', 'موسفت', 'gate', 'zener', 'يسخن', 'ratiere'],
+      r: '🔧 <b>IRF4905 + حماية الـ Gate</b><br>الـ IRF4905 موسفت قناة-P يتحمل -55V وبمقاومة Rds ضعيفة (~20mΩ) يعني ضياع حرارة قليل.<br>• <b>S</b> = الدخل (بعد الفيوز) • <b>D</b> = الخرج (Latched Bus) • <b>G</b> = التحكم (بنفسجي)<br>⚠️ الـ <b>Zener 12V</b> بين G و S إجبارية: تحمي البوابة من جهد زايد. إذا الموسفت يسخن برشا، تفقد: التبريد، الـ Zener، والتيار (ما تفوتش حدود الوحدة).' },
+    { k: ['mppt', 'solar', 'شمسي', 'لوح', 'لوحة', '42v', '42', 'شحن', 'charge', 'boost', 'ltc3780', 'panneau', 'sizing', 'قداش واط'],
+      r: '☀️ <b>الشحن الشمسي MPPT</b><br>وحدة <b>LTC3780 Boost</b> ترفع جهد اللوح (18–36V) حتى <b>42.0V</b> لشحن بك الـ 10S، بكفاءة ~90%.<br>• اضبط الخرج <b>42.0V بدون حمل قبل</b> ما تربط البطارية<br>• لوح حتى <b>160W</b>: تيار شحن ≈ (160×0.9)/42 ≈ <b>3.4A</b> — مناسب لخلايا معاد تدويرها (ما تفوتش 0.5C)<br>• اللوح 100W يشحن بك 336Wh في ~4 ساعات شمس باهية 🔋' },
+    { k: ['بطارية', 'سكوتر', 'batterie', 'trottinette', '18650', '21700', 'نشري', 'بقداش', 'سعر', 'prix', 'athenes', 'أثينا', 'منصف', 'moncef', 'recyclage', 'مستعملة'],
+      r: '🔋 <b>بطارية السكوتر في تونس</b><br>• <b>سوق منصف باي</b> (باب عليوة): جناح بطاريات السكوتر المستعملة — بك 10S كامل بنصف السعر، فكك واستخرج الخلايا السليمة (ارفض أي خلية تحت 3.0V أو منفوخة).<br>• <b>نهج أثينا</b>: خلايا 18650/21700 مفردة، شواحن 42V، كابلات XT60.<br>• السعر التقريبي: بك مستعمل <b>80–150 د.ت</b> حسب الحالة — شوف قسم <b>📡 رادار التوريد</b> في الموقع للمسافات والخرائط! 🗺️' },
+    { k: ['مودام', 'مودم', 'router', 'انارة', 'إضاءة', 'تلفزة', 'تلفاز', 'يشد', 'runtime', 'autonomie', 'قداش', 'استهلاك', 'box'],
+      r: '⏱️ <b>قداش تشدك؟ (بك 336Wh)</b><br>• مودام 4G (10W) + إنارة LED (8W) = <b>18W → حوالي 18 ساعة</b> 🌙<br>• زيد تلفزة عبر إنفرتر (60W) = <b>78W → حوالي 4 ساعات</b> 📺<br>• لابتوب PD (45W) وحدو = <b>~7 ساعات</b> 💻<br>جرّب <b>🧮 حاسبة الاستقلالية</b> في الموقع: زيد أجهزتك وحرك اللوح الشمسي وشوف النتيجة لحظيًا — وكي الشمس تغطي الحمل تولي <b>∞ اكتفاء ذاتي</b> ☀️' },
+    { k: ['start', 'تخدم', 'ما تخدمش', 'مشكلة', 'probleme', 'panne', 'تولع', 'تشتغل', 'عطل', 'bouton', 'زر'],
+      r: '⚠️ <b>العلبة ما تخدمش كي تنزل START؟ تفقد بالترتيب:</b><br>1️⃣ الجهد على البطارية فوق <b>31V</b>؟ (لوطا منها الدارة تفصل بالعاني)<br>2️⃣ <b>الفيوز 15A</b> سليم؟ قيسو بالملتيميتر<br>3️⃣ زر <b>STOP الأحمر (NC)</b> مسكر؟ إذا محلول، الـ Latch ما يتمسكش<br>4️⃣ زر START (NO) يوصل كي تنزل عليه؟<br>5️⃣ جهد الـ Gate: لازم يهبط تحت ~32V كي تنزل START<br>6️⃣ الـ TL431 والـ RV1 ملحومين/مربوطين صحيح؟<br>90% من الأعطاب: فيوز أو بطارية فارغة أو STOP محلول. 🔍' },
+    { k: ['fuse', 'فيوز', 'fusible', 'bms', 'safety', 'سلامة', 'امان', 'خطر', 'securite'],
+      r: '🛡️ <b>السلامة أولًا — بلا نقاش:</b><br>• <b>فيوز 15A أول عنصر</b> بعد البطارية، دائمًا. جامي ت bypass الفيوز ولا الـ BMS.<br>• أسلاك البطارية/الشمسي <b>AWG 14 سيليكون</b>، المنطق AWG 20.<br>• كل التوصيلات القوية بـ <b>WAGO 221</b> — ممنوع اللحام على مسار القدرة.<br>• خلية منفوخة أو سخونة = ارميها (نقطة تجميع، موش الزبلة).<br>• قيس مرتين، شغّل مرة — القاعدة الذهبية 📏' },
+    { k: ['wago', 'لحام', 'soudure', 'solder', '221', 'توصيل'],
+      r: '🔗 <b>WAGO 221 — صفر لحام</b><br>مكعبات التوصيل السريعة بالرافعة: تحل الرافعة، تدخل السلك (حتى أسلاك مختلفة الأقطار)، تسكر — واتصال مضمون يتحمل حتى 32A.<br>تلقاها في <b>الشرقية/أريانة</b> والمواقع الأوروبية. لمشروع PBX-36 لازمك ~10 قطع: دخول/خروج البطارية، الشمسي، والمخارج. سريعة، آمنة، وتتفك وتتركب ألف مرة. 🧩' },
+    { k: ['buck', '12v', 'usb', 'pd', 'ip2368', 'inverter', 'انفرتر', '220v', 'مخارج', 'onduleur'],
+      r: '⚡ <b>مخارج PBX-36:</b><br>• <b>USB-C PD 100W</b> (شريحة IP2368): لابتوب + شحن سريع هاتف 18W<br>• <b>12V/10A Buck</b>: المودام والإنارة LED (السلك الأزرق)<br>• <b>إنفرتر Mini 220V</b>: التلفزة والأجهزة الصغيرة (~60W، ما تشغلوش بلاش تهوئة)<br>الكل يتغذى من الـ <b>Latched Bus البرتقالي</b> — يعني كي تفصل الحماية، كل شيء يطفى مع بعضو. 🔌' },
+    { k: ['stl', 'print', 'طباعة', 'اطبع', 'نطبع', 'طبع', 'impression', 'imprimer', 'boitier', '3d', 'chassis', 'panel', 'علبة', 'العلبة', 'faceplate', 'petg', 'cura', 'prusa', 'bambu', 'ملف', 'ملفات', 'تحميل', 'download', 'telecharger', 'وين نلقى'],
+      r: '🖨️ <b>الطباعة ثلاثية الأبعاد</b><br>ملفات حقيقية جاهزة في <b>⬇️ مركز التحميل</b>: الهيكل (200×140×80mm) والواجهة الأمامية بالفتحات الدقيقة (أزرار 16mm، شاشة 45×26، USB، XT60، سوكيت 220V).<br>• الخامة: <b>PETG</b> • طبقة 0.2mm • تعبئة 30% • 4 جدران<br>• الهيكل يتطبع مفتوح لفوق <b>بلاش supports</b>، والواجهة مسطحة.<br>الملفات سليمة (manifold) وتتفتح في PrusaSlicer وCura وBambu Studio مباشرة. ✅' },
+    { k: ['wiring', 'schema', 'مخطط', 'pdf', 'couleur', 'الوان', 'ألوان', 'احمر', 'rouge', 'pinout', 'awg'],
+      r: '📐 <b>دليل التوصيلات (PDF)</b><br>حمّلو من مركز التحميل: مخطط A4 بالألوان:<br>🔴 أحمر +36V • ⚫ أسود GND • 🟠 برتقالي Latched • 🔵 أزرق +12V • 🟣 بنفسجي Gate<br>فيه جدول التوصيلات كامل (XT60، فيوز، IRF4905، TL431، Zener، 2N3906/2N2222A، Buck) + حسبة الـ 31.00V + قائمة السلامة. اطبعو A4 بحجم 100%. 🖨️' },
+    { k: ['budget', 'cout', 'coût', 'تكلفة', 'بقداش يكلف', 'prix total', 'ميزانية'],
+      r: '💰 <b>ميزانية PBX-36 التقديرية:</b><br>• 🇹🇳 تونس: <b>~240–320 د.ت</b> (البطارية مستعملة من منصف باي توفر برشا)<br>• 🇪🇺 أوروبا: <b>~85–110 €</b><br>• 🌍 عالمي: <b>~90–120 $</b><br>أغلى عنصرين: البطارية والإنفرتر. كل التفاصيل في جدول BOM في الموقع. 💸' },
+    { k: ['salam', 'salem', 'ahla', 'اهلا', 'سلام', 'bonjour', 'hello', 'hi', 'cc', 'عسلامة', 'صباح', 'مساء'],
+      r: '👋 أهلًا وسهلًا! أنا <b>مستشار واطنا الذكي</b> — مهندس طاقة نظيفة في جيبك. ☀️<br>نجم نعاونك في: دارة 0.00mA، الشمسي والبطاريات، التشخيص، منين تشري في تونس، والطباعة 3D.<br>شنوة تحب تعرف؟ استعمل الأزرار المقترحة ولا اكتب سؤالك بالتونسي، العربية، Français أو English!' }
+  ];
+  var FALLBACK = '🤔 سؤال وجيه! ما عنديش إجابة دقيقة عليه في الدليل المدمج، أما نجم نعاونك في:<br>• 🔌 دارة <b>0.00mA</b> والـ TL431 (31.00V)<br>• ☀️ الشمسي والـ MPPT والشحن<br>• 🔋 البطاريات ومنين تشري في تونس<br>• ⚠️ تشخيص الأعطاب (START، فيوز، Gate)<br>• 🖨️ الطباعة 3D والمخططات<br>عاود صيغ سؤالك بكلمات من هاذم، ولا جرّب الأزرار المقترحة 👆';
+
+  function norm(s) {
+    return (s || '').toLowerCase()
+      .replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
+      .replace(/[\u064B-\u0652\u0640]/g, ' ');
+  }
+  function answer(q) {
+    var nq = ' ' + norm(q) + ' ';
+    var best = null, bestScore = 0;
+    for (var i = 0; i < KB.length; i++) {
+      var sc = 0;
+      for (var j = 0; j < KB[i].k.length; j++) {
+        if (nq.indexOf(norm(KB[i].k[j])) > -1) sc += KB[i].k[j].length > 4 ? 2 : 1;
+      }
+      if (sc > bestScore) { bestScore = sc; best = KB[i]; }
+    }
+    return bestScore >= 2 ? best.r : FALLBACK;
+  }
+
+  async function remoteAnswer(q) {
+    var ep = window.__WATTOUNA_AI_ENDPOINT__;
+    if (!ep) return null;
+    try {
+      var ctrl = new AbortController();
+      var t = setTimeout(function () { ctrl.abort(); }, 12000);
+      var res = await fetch(ep, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q }), signal: ctrl.signal });
+      clearTimeout(t);
+      if (!res.ok) return null;
+      var d = await res.json();
+      return d.reply || d.answer || d.text || null;
+    } catch (e) { return null; }
+  }
+
+  /* ---------------- UI ---------------- */
+  var greeted = false;
+  function addMsg(html, who) {
+    var d = document.createElement('div');
+    d.className = 'wai-msg ' + who;
+    d.innerHTML = html;
+    msgs.appendChild(d);
+    msgs.scrollTop = msgs.scrollHeight;
+    return d;
+  }
+  function typing() {
+    var d = document.createElement('div');
+    d.className = 'wai-msg bot wai-typing';
+    d.innerHTML = '<span></span><span></span><span></span>';
+    msgs.appendChild(d);
+    msgs.scrollTop = msgs.scrollHeight;
+    return d;
+  }
+  function open() {
+    panel.hidden = false;
+    fab.setAttribute('aria-expanded', 'true');
+    dot.hidden = true;
+    if (!greeted) {
+      greeted = true;
+      var t = typing();
+      setTimeout(function () {
+        t.remove();
+        addMsg('👋 أهلًا بيك في <b>واطنا</b>! أنا المستشار الذكي — اسألني على دارة 0.00mA، البطاريات، الشمسي، ولا أي عطل. ☀️', 'bot');
+        blip(660);
+      }, 700);
+    }
+    setTimeout(function () { text.focus(); }, 50);
+  }
+  function close() { panel.hidden = true; fab.setAttribute('aria-expanded', 'false'); }
+
+  fab.addEventListener('click', function () { panel.hidden ? open() : close(); blip(520); });
+  document.getElementById('waiClose').addEventListener('click', close);
+  btnSound.addEventListener('click', function () {
+    sound = !sound;
+    btnSound.textContent = sound ? '🔔' : '🔕';
+    try { localStorage.setItem('wattouna-ai-sound', sound ? 'on' : 'off'); } catch (e) {}
+  });
+  chips.addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (b) ask(b.textContent);
+  });
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var q = text.value.trim();
+    if (!q) return;
+    text.value = '';
+    ask(q);
+  });
+
+  async function ask(q) {
+    if (panel.hidden) open();
+    addMsg(q.replace(/</g, '&lt;'), 'user');
+    var t = typing();
+    statusEl.textContent = '● يفكر…';
+    var reply = await remoteAnswer(q);
+    var local = false;
+    if (!reply) { reply = answer(q); local = true; }
+    setTimeout(function () {
+      t.remove();
+      addMsg(reply, 'bot');
+      statusEl.textContent = local ? '● متصل — محرك محلي فوري' : '● متصل — نموذج خارجي';
+      blip(760);
+    }, local ? 600 : 100);
+  }
+})();
+</script>
+
+<style>
+  .wai-fab {
+    position: fixed;
+    bottom: 18px;
+    inset-inline-end: 18px;
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    background: linear-gradient(135deg, #f59e0b, #ea580c);
+    color: #1a1000;
+    border: none;
+    border-radius: 999px;
+    padding: .65rem .95rem;
+    font-family: inherit;
+    font-weight: 800;
+    font-size: .85rem;
+    cursor: pointer;
+    box-shadow: 0 0 0 0 rgba(245,158,11,.5), 0 10px 30px rgba(0,0,0,.5);
+    animation: wai-glow 2.6s ease-out infinite;
+  }
+  @keyframes wai-glow {
+    0% { box-shadow: 0 0 0 0 rgba(245,158,11,.45), 0 10px 30px rgba(0,0,0,.5); }
+    70% { box-shadow: 0 0 0 14px rgba(245,158,11,0), 0 10px 30px rgba(0,0,0,.5); }
+    100% { box-shadow: 0 0 0 0 rgba(245,158,11,0), 0 10px 30px rgba(0,0,0,.5); }
+  }
+  .wai-fab-icon { font-size: 1.3rem; }
+  .wai-fab-dot {
+    position: absolute;
+    top: -4px;
+    inset-inline-start: -4px;
+    background: #ef4444;
+    color: #fff;
+    font-size: .7rem;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+  }
+  .wai-panel {
+    position: fixed;
+    bottom: 76px;
+    inset-inline-end: 18px;
+    z-index: 91;
+    width: min(380px, calc(100vw - 36px));
+    height: min(540px, calc(100dvh - 110px));
+    display: flex;
+    flex-direction: column;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 24px 70px rgba(0,0,0,.6);
+  }
+  .wai-panel[hidden] { display: none; }
+  .wai-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: .7rem .9rem;
+    background: linear-gradient(135deg, rgba(245,158,11,.15), rgba(56,189,248,.1));
+    border-bottom: 1px solid var(--border);
+  }
+  .wai-head-id { display: flex; align-items: center; gap: .6rem; }
+  .wai-avatar { font-size: 1.5rem; }
+  .wai-head-id b { display: block; font-size: .92rem; }
+  .wai-head-id small { color: var(--green); font-size: .72rem; }
+  .wai-head-btns button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 10px;
+    padding: .3rem .55rem;
+    cursor: pointer;
+    font-size: .9rem;
+  }
+  .wai-msgs {
+    flex: 1;
+    overflow-y: auto;
+    padding: .8rem;
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+  }
+  .wai-msg {
+    max-width: 88%;
+    padding: .55rem .8rem;
+    border-radius: 14px;
+    font-size: .86rem;
+    line-height: 1.7;
+  }
+  .wai-msg.bot { background: #0a132a; border: 1px solid var(--border); align-self: flex-start; border-start-start-radius: 4px; }
+  .wai-msg.user { background: linear-gradient(135deg, #f59e0b, #ea580c); color: #1a1000; font-weight: 600; align-self: flex-end; border-start-end-radius: 4px; }
+  .wai-typing span {
+    display: inline-block;
+    width: 7px; height: 7px;
+    background: var(--cyan);
+    border-radius: 50%;
+    margin-inline-end: 3px;
+    animation: wai-blink 1.2s infinite;
+  }
+  .wai-typing span:nth-child(2) { animation-delay: .2s; }
+  .wai-typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes wai-blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+  .wai-chips {
+    display: flex;
+    gap: .4rem;
+    padding: .5rem .8rem;
+    overflow-x: auto;
+    border-top: 1px solid var(--border);
+  }
+  .wai-chips button {
+    flex: none;
+    background: #0a132a;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 999px;
+    padding: .35rem .7rem;
+    font-family: inherit;
+    font-size: .75rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .wai-chips button:hover { border-color: var(--amber); }
+  .wai-input {
+    display: flex;
+    gap: .5rem;
+    padding: .6rem .8rem;
+    border-top: 1px solid var(--border);
+  }
+  .wai-input input {
+    flex: 1;
+    background: #0a132a;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: .55rem .8rem;
+    color: var(--text);
+    font-family: inherit;
+    font-size: .88rem;
+  }
+  .wai-input input:focus { outline: none; border-color: var(--cyan); }
+  .wai-input button {
+    background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+    border: none;
+    border-radius: 12px;
+    padding: 0 .9rem;
+    font-size: 1.1rem;
+    cursor: pointer;
+    color: #04121f;
+  }
+</style>
