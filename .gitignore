@@ -24,3 +24,6 @@ npm-debug.log*
 # python
 __pycache__/
 *.pyc
+
+# generated training data (server-side, grows every 4h)
+data/wattouna_training.jsonl

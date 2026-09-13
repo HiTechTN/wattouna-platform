@@ -173,7 +173,19 @@ async function main() {
     console.log(`  ${v.ok ? 'PASS' : 'FAIL'} ${t.key}${v.ok ? '' : ' — ' + v.reason}`);
     if (!v.ok) { console.error('[harvester] catalog template invalid, aborting'); process.exit(2); }
   }
-  if (CHECK_ONLY) { console.log('[harvester] --check OK, no DB writes'); return; }
+  if (CHECK_ONLY) {
+    // offline: validate training-pair generation for every template too
+    for (const t of CATALOG) {
+      const pairs = trainingPairs({ t, state: { nodes: t.nodes, wires: t.wires } }, `wattouna-ai-${t.key}-check`);
+      for (const p of pairs) {
+        const o = JSON.parse(JSON.stringify(p));
+        if (!o.system || !o.user || !o.assistant || !o.assistant.includes('<CANVAS_STATE_JSON>') && !o.assistant.includes('/projects/'))
+          throw new Error(`bad training pair for ${t.key}`);
+      }
+    }
+    console.log('[harvester] --check OK (circuits + training pairs), no DB writes');
+    return;
+  }
 
   const SVC = loadServiceKey();
   if (!SVC) { console.error('[harvester] SERVICE_ROLE_KEY not found'); process.exit(1); }
@@ -245,6 +257,44 @@ async function main() {
   const pid = ins.data?.[0]?.id;
   await api('PATCH', `/rest/v1/profiles?id=eq.${BOT_ID}`, { upcycled_energy_wh: energy + pick.t.impactWh }, SVC);
   console.log(`[harvester] PUBLISHED "${pick.t.title}" id=${pid} slug=${slug} +${pick.t.impactWh}Wh (total ${energy + pick.t.impactWh}Wh)`);
+  appendTrainingData(pick, slug);
+}
+
+/* ---------------- Nightly dataset generation (M3) ---------------- */
+const DATASET = new URL('../data/wattouna_training.jsonl', import.meta.url);
+
+const SYS_PROMPT = 'You are Wattouna AI, a friendly clean-energy hardware engineer. You speak Tunisian Arabic with French/English support. Expertise: PBX-36 36V solar generator, 0.00mA IRF4905/TL431 latch (31.00V cutoff), LTC3780 MPPT to 42.0V, WAGO 221 builds, recycled e-scooter batteries. Keep answers practical and numbered.';
+
+function trainingPairs(pick, slug) {
+  const t = pick.t;
+  const canvas = JSON.stringify(pick.state);
+  const bom = t.bom.map((b, i) => `${i + 1}. ${b}`).join('\n');
+  return [
+    {
+      system: SYS_PROMPT,
+      user: `Design a ${t.key.replace(/-/g, ' ')} circuit for a 36V solar generator with an estimated impact of ${t.impactWh}Wh.`,
+      assistant: `${t.title}\n\n${t.desc}\n\nPower path: 10S battery (36V) → 0.00mA latch (cutoff 31.00V) → latched bus → loads. Solar charges via MPPT to 42.0V.\n\n<CANVAS_STATE_JSON>${canvas}</CANVAS_STATE_JSON>`,
+    },
+    {
+      system: SYS_PROMPT,
+      user: `ما هي مكونات مشروع "${t.title}" وكيف تتوصل؟`,
+      assistant: `مكونات "${t.title}":\n${bom}\n\nالتوصيل: الأحمر +36V، الأسود GND، البرتقالي Latched، الأزرق +12V، البنفسجي Gate. الفيوز 15A أول عنصر بعد البطارية، والأسلاك AWG 14 للقدرة.\n\nالتفاصيل الكاملة: /projects/${slug}`,
+    },
+  ];
+}
+
+function appendTrainingData(pick, slug) {
+  const pairs = trainingPairs(pick, slug);
+  fs.mkdirSync(path.dirname(new URL(DATASET).pathname), { recursive: true });
+  const lines = pairs.map((p) => JSON.stringify(p)).join('\n') + '\n';
+  fs.appendFileSync(new URL(DATASET), lines);
+  // read-back validation: every line must parse
+  const raw = fs.readFileSync(new URL(DATASET), 'utf8').split('\n').filter(Boolean);
+  raw.forEach((ln, i) => {
+    const o = JSON.parse(ln);
+    if (!o.system || !o.user || !o.assistant) throw new Error(`bad jsonl line ${i}`);
+  });
+  console.log(`[harvester] dataset += ${pairs.length} pairs (${raw.length} total) → data/wattouna_training.jsonl`);
 }
 
 main().catch((e) => { console.error('[harvester] fatal:', e.message); process.exit(1); });
