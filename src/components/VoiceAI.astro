@@ -1,0 +1,232 @@
+---
+---
+<!-- Floating voice co-designer toggle (bottom-inline-start: WattounaAI lives opposite) -->
+<button id="vaiFab" class="vai-fab" aria-label="المساعد الصوتي" aria-expanded="false">
+  <span class="vai-fab-icon">🎙️</span>
+  <span class="vai-fab-badge">مساعد المختبر 🎧</span>
+</button>
+
+<div id="vaiPanel" class="vai-panel" role="dialog" aria-label="مساعد المختبر الصوتي" hidden>
+  <div class="vai-head">
+    <div class="vai-head-id">
+      <span class="vai-avatar">🧠</span>
+      <span><b>مساعد المختبر</b><small id="vaiStatus">● جاهز — قل «أضف بطارية»</small></span>
+    </div>
+    <div class="vai-head-btns">
+      <button id="vaiVoice" aria-label="الرد الصوتي" title="الرد الصوتي">🔊</button>
+      <button id="vaiClose" aria-label="إغلاق">✕</button>
+    </div>
+  </div>
+  <div id="vaiMsgs" class="vai-msgs" aria-live="polite"></div>
+  <div class="vai-ota" id="vaiOta" hidden></div>
+  <div class="vai-controls">
+    <button id="vaiMic" class="vai-mic" aria-label="تحدث">🎤 تحدث</button>
+    <button id="vaiBrain" class="vai-brain">⬇️ تحميل العقل المحلي (مرة واحدة)</button>
+  </div>
+  <form id="vaiForm" class="vai-input">
+    <input id="vaiText" type="text" placeholder="اكتب أو تحدث: أضف MPPT…" autocomplete="off" maxlength="300" />
+    <button type="submit" aria-label="إرسال">➤</button>
+  </form>
+</div>
+
+<script type="module">
+  import { createBrain, parseVoiceCommand } from '/vendor/local-ai.js';
+
+  var fab = document.getElementById('vaiFab');
+  var panel = document.getElementById('vaiPanel');
+  var msgs = document.getElementById('vaiMsgs');
+  var statusEl = document.getElementById('vaiStatus');
+  var otaBox = document.getElementById('vaiOta');
+  var micBtn = document.getElementById('vaiMic');
+  var brainBtn = document.getElementById('vaiBrain');
+  var voiceBtn = document.getElementById('vaiVoice');
+  function boot() {
+  if (!fab || !panel) return;
+
+  var brain = createBrain();
+  var voiceOn = true;
+  try { voiceOn = localStorage.getItem('wattouna-voice') !== 'off'; } catch (e) {}
+  voiceBtn.textContent = voiceOn ? '🔊' : '🔇';
+
+  function addMsg(html, who) {
+    var d = document.createElement('div');
+    d.className = 'wai-msg ' + who;
+    d.innerHTML = html;
+    msgs.appendChild(d);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+  function setStatus(t) { statusEl.textContent = '● ' + t; }
+
+  function dropParts(actions) {
+    actions.forEach(function (a, i) {
+      setTimeout(function () {
+        window.dispatchEvent(new CustomEvent('wattouna:ai-add-part', { detail: { type: a.add } }));
+      }, i * 350);
+    });
+  }
+
+  async function handle(text) {
+    if (!text.trim()) return;
+    addMsg(text.replace(/</g, '&lt;'), 'user');
+    setStatus('يفكر…');
+    var reply = await brain.chat(text);
+    // route canvas actions through the parser too (works with or without LLM)
+    var cmd = parseVoiceCommand(text);
+    if (cmd.actions.length) {
+      dropParts(cmd.actions);
+      if (!reply || reply.length < 10) reply = cmd.reply;
+    }
+    addMsg(reply, 'bot');
+    setStatus('جاهز');
+    if (voiceOn) brain.speak(reply);
+  }
+
+  fab.addEventListener('click', function () {
+    panel.hidden = !panel.hidden;
+    fab.setAttribute('aria-expanded', String(!panel.hidden));
+    if (!panel.hidden) checkOTA();
+  });
+  document.getElementById('vaiClose').addEventListener('click', function () { panel.hidden = true; });
+  voiceBtn.addEventListener('click', function () {
+    voiceOn = !voiceOn;
+    voiceBtn.textContent = voiceOn ? '🔊' : '🔇';
+    try { localStorage.setItem('wattouna-voice', voiceOn ? 'on' : 'off'); } catch (e) {}
+    if (!voiceOn) brain.stopSpeak();
+  });
+
+  micBtn.addEventListener('click', async function () {
+    if (!brain.listeningSupported()) {
+      addMsg('❌ المتصفح لا يدعم الإدخال الصوتي — اكتب طلبك ⌨️', 'bot');
+      return;
+    }
+    micBtn.textContent = '🔴 أستمع… تحدث الآن';
+    setStatus('أستمع…');
+    try {
+      var heard = await brain.listen();
+      addMsg('🎧 سمعت: «' + heard.replace(/</g, '&lt;') + '»', 'bot');
+      await handle(heard);
+    } catch (e) {
+      addMsg('😅 ما سمعت شيء واضح — عاود ولا اكتب طلبك.', 'bot');
+      setStatus('جاهز');
+    }
+    micBtn.textContent = '🎤 تحدث';
+  });
+
+  brainBtn.addEventListener('click', async function () {
+    brainBtn.disabled = true;
+    setStatus('يحمّل…');
+    var ok = await brain.ensureLoaded(function (t) { setStatus(t); });
+    addMsg(ok ? '🧠 العقل المحلي جاهز ويعمل دون اتصال!' : '🌱 وضع القواعد مفعّل — كل الميزات شغالة دون تحميل.', 'bot');
+    brainBtn.disabled = false;
+    brainBtn.textContent = '🧠 العقل: ' + (ok ? 'محلي ✅' : 'قواعد 🌱');
+    checkOTA();
+  });
+
+  async function checkOTA() {
+    try {
+      var r = await brain.checkOTA();
+      if (r.update) {
+        otaBox.hidden = false;
+        otaBox.innerHTML = '🔄 <b>Update Wattouna AI Brain? (Offline Mode)</b><br><small>نسخة جديدة: ' +
+          r.remote.replace(/</g, '&lt;') + ' — حمّلها الليلة على WiFi.</small> ' +
+          '<button id="vaiUpd" class="btn btn-amber" style="padding:.3rem .8rem;font-size:.78rem">تحديث الآن</button>';
+        document.getElementById('vaiUpd').addEventListener('click', async function () {
+          otaBox.innerHTML = '⏳ جارٍ التحديث…';
+          await brain.ensureLoaded(function (t) { otaBox.innerHTML = '⏳ ' + t.replace(/</g, '&lt;'); });
+          otaBox.hidden = true;
+        });
+      } else otaBox.hidden = true;
+    } catch (e) { otaBox.hidden = true; }
+  }
+
+  document.getElementById('vaiForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var inp = document.getElementById('vaiText');
+    var v = inp.value.trim();
+    inp.value = '';
+    handle(v);
+  });
+
+  setTimeout(function () {
+    if (!panel.hidden) return;
+    addMsg('👋 أنا مساعد المختبر! قولي «أضف بطارية» بالصوت ولا الكتابة — ولا حمّل العقل المحلي للذكاء الكامل دون اتصال. 🧪', 'bot');
+  }, 800);
+  } // end boot()
+  boot();
+</script>
+
+<style>
+  .vai-fab {
+    position: fixed;
+    bottom: 18px;
+    inset-inline-start: 18px;
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+    color: #04121f;
+    border: none;
+    border-radius: 999px;
+    padding: .65rem .95rem;
+    font-family: inherit;
+    font-weight: 800;
+    font-size: .85rem;
+    cursor: pointer;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  }
+  .vai-fab-icon { font-size: 1.3rem; }
+  .vai-panel {
+    position: fixed;
+    bottom: 76px;
+    inset-inline-start: 18px;
+    z-index: 91;
+    width: min(360px, calc(100vw - 36px));
+    height: min(500px, calc(100dvh - 110px));
+    display: flex;
+    flex-direction: column;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 24px 70px rgba(0,0,0,.6);
+  }
+  .vai-panel[hidden] { display: none; }
+  .vai-head {
+    display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+    padding: .7rem .9rem;
+    background: linear-gradient(135deg, rgba(56,189,248,.15), rgba(245,158,11,.08));
+    border-bottom: 1px solid var(--border);
+  }
+  .vai-head-id { display: flex; align-items: center; gap: .6rem; }
+  .vai-avatar { font-size: 1.5rem; }
+  .vai-head-id b { display: block; font-size: .92rem; }
+  .vai-head-id small { color: var(--muted); font-size: .72rem; }
+  .vai-head-btns button {
+    background: transparent; border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: .3rem .55rem; cursor: pointer; font-size: .9rem;
+  }
+  .vai-msgs { flex: 1; overflow-y: auto; padding: .8rem; display: flex; flex-direction: column; gap: .55rem; }
+  .vai-ota { margin: 0 .8rem; background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.45); border-radius: 12px; padding: .6rem .8rem; font-size: .82rem; }
+  .vai-ota[hidden] { display: none; }
+  .vai-controls { display: flex; gap: .5rem; padding: .5rem .8rem; }
+  .vai-mic {
+    flex: 1; background: linear-gradient(135deg, #f59e0b, #ea580c); color: #1a1000;
+    border: none; border-radius: 12px; padding: .6rem; font-family: inherit; font-weight: 800; cursor: pointer;
+  }
+  .vai-brain {
+    flex: 1.4; background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    border-radius: 12px; padding: .6rem; font-family: inherit; font-size: .78rem; cursor: pointer;
+  }
+  .vai-brain[disabled] { opacity: .6; }
+  .vai-input { display: flex; gap: .5rem; padding: .6rem .8rem; border-top: 1px solid var(--border); }
+  .vai-input input {
+    flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: .55rem .8rem; color: var(--text); font-family: inherit; font-size: .88rem;
+  }
+  .vai-input input:focus { outline: none; border-color: var(--cyan); }
+  .vai-input button {
+    background: linear-gradient(135deg, #38bdf8, #0ea5e9); border: none; border-radius: 12px;
+    padding: 0 .9rem; font-size: 1.1rem; cursor: pointer; color: #04121f;
+  }
+</style>

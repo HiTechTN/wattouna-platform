@@ -1,0 +1,6 @@
+{
+  "version": "qwen2-0.5b-v1",
+  "modelId": "Qwen2-0.5B-Instruct-q4f16_1-MLC",
+  "sizeMB": 420,
+  "notes": "Base offline brain. Fine-tuned Wattouna builds will bump this version and prompt in-app update."
+}

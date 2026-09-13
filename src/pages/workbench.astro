@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import VoiceAI from '../components/VoiceAI.astro';
 const SUPA_URL = import.meta.env.PUBLIC_SUPABASE_URL || '';
 const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 ---
@@ -56,6 +57,7 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
       <div id="wbNodes"></div>
     </div>
     <div id="wbAlert" class="wb-alert" hidden></div>
+    <VoiceAI />
   </div>
 </BaseLayout>
 
@@ -462,6 +464,14 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
     drawWires();
   });
   window.addEventListener('pointerup', () => { dragNode = null; });
+  window.addEventListener('wattouna:ai-add-part', (e) => {
+    const type = e.detail?.type;
+    if (!type || !PARTS[type]) return;
+    addNode(type);
+    say(`🤖 أضاف المساعد: ${PARTS[type].name}`, true);
+    if (simOn) simTick();
+  });
+
   window.addEventListener('resize', drawWires);
 
   /* ---------------- validate (short-circuit check) ---------------- */
