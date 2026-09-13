@@ -22,6 +22,11 @@ const { title = 'واطُنا Wattouna — اصنع محطة طاقتك الشم
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <script is:inline>
       try {
         var wt = localStorage.getItem('wattouna-theme') || 'dark-solar';
@@ -41,6 +46,13 @@ const { title = 'واطُنا Wattouna — اصنع محطة طاقتك الشم
     </main>
     <Footer />
     <WattounaAI />
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function () {});
+        });
+      }
+    </script>
     <script>
       const bar = document.getElementById('progressBar');
       const onScroll = () => {

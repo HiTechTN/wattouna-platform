@@ -31,6 +31,7 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
         <button id="wbStart" class="btn btn-amber wb-btn">▶️ بدء المحاكاة</button>
         <button id="wbStop" class="btn btn-ghost wb-btn" hidden>⏹️ إيقاف</button>
         <span id="wbSimState" class="pill">⏸️ متوقف</span>
+        <span id="wbTier" class="pill cyan">…</span>
         <span class="wb-zoom">
           <button id="wbZoomOut" aria-label="تصغير">−</button>
           <button id="wbZoomReset" aria-label="إعادة العرض">⌂ <span id="wbZoomLvl" dir="ltr">100%</span></button>
@@ -51,6 +52,7 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
     <!-- Canvas -->
     <div id="wbCanvas" class="wb-canvas">
       <svg id="wbSvg"></svg>
+      <canvas id="wbFx" aria-hidden="true"></canvas>
       <div id="wbNodes"></div>
     </div>
     <div id="wbAlert" class="wb-alert" hidden></div>
@@ -61,6 +63,9 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   import { createClient } from '/vendor/supabase.js';
   import { localSaveProject, localGetProject, uid } from '/vendor/wb-store.js';
   import { renderPart } from '/vendor/hardware-graphics.js';
+  import { sniffDevice } from '/vendor/device-sniffer.js';
+  let gfxTier = 'eco';
+  try { gfxTier = sniffDevice().tier; } catch (e) { gfxTier = 'eco'; }
 
   const isSupabaseConfigured = Boolean(SUPA_URL && SUPA_ANON);
   let supabase = null;
@@ -99,6 +104,87 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   const titleInput = document.getElementById('wbTitle');
   const colorSel = document.getElementById('wbColor');
   const cloudPill = document.getElementById('wbCloud');
+  const fxCanvas = document.getElementById('wbFx');
+  const fx = fxCanvas.getContext('2d');
+  const tierPill = document.getElementById('wbTier');
+  let fxRAF = 0;
+  const particles = [];
+
+  function paintTier() {
+    if (!tierPill) return;
+    tierPill.textContent = gfxTier === 'high' ? '⚡ أداء عالٍ (60fps)' : '🌱 وضع اقتصادي';
+    tierPill.className = 'pill ' + (gfxTier === 'high' ? 'amber' : 'green');
+  }
+
+  function fxResize() {
+    const r = canvas.getBoundingClientRect();
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    fxCanvas.width = Math.max(1, Math.round(r.width * dpr));
+    fxCanvas.height = Math.max(1, Math.round(r.height * dpr));
+    fx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function fxSpawn() {
+    particles.length = 0;
+    const paths = svg.querySelectorAll('path');
+    paths.forEach((p, i) => {
+      try {
+        const len = p.getTotalLength();
+        if (!len || len < 10) return;
+        const n = Math.min(4, Math.max(2, Math.round(len / 90)));
+        for (let k = 0; k < n; k++) {
+          if (particles.length >= 120) return;
+          particles.push({ p, len, t: (i * 0.37 + k / n) % 1, sp: 0.9 + ((i + k) % 3) * 0.35, c: p.getAttribute('stroke') || '#38bdf8' });
+        }
+      } catch (e) {}
+    });
+  }
+
+  function fxFrame() {
+    if (!simOn || gfxTier !== 'high') { fxRAF = 0; return; }
+    const r = canvas.getBoundingClientRect();
+    fx.clearRect(0, 0, r.width, r.height);
+    fx.save();
+    fx.shadowBlur = 10;
+    for (const pt of particles) {
+      pt.t = (pt.t + 0.008 * pt.sp) % 1;
+      try {
+        const pos = pt.p.getPointAtLength(pt.t * pt.len);
+        fx.shadowColor = pt.c;
+        fx.fillStyle = '#ffffff';
+        fx.beginPath();
+        fx.arc(pos.x, pos.y, 2.2, 0, 6.2832);
+        fx.fill();
+        fx.fillStyle = pt.c;
+        fx.beginPath();
+        fx.arc(pos.x, pos.y, 1.2, 0, 6.2832);
+        fx.fill();
+      } catch (e) {}
+    }
+    fx.restore();
+    fxRAF = requestAnimationFrame(fxFrame);
+  }
+
+  function fxStart() {
+    paintTier();
+    if (gfxTier !== 'high') return;
+    fxResize();
+    fxSpawn();
+    if (!fxRAF && !document.hidden) fxRAF = requestAnimationFrame(fxFrame);
+  }
+
+  function fxStop() {
+    if (fxRAF) cancelAnimationFrame(fxRAF);
+    fxRAF = 0;
+    particles.length = 0;
+    try { fx.clearRect(0, 0, fxCanvas.width, fxCanvas.height); } catch (e) {}
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { if (fxRAF) cancelAnimationFrame(fxRAF); fxRAF = 0; }
+    else if (simOn && gfxTier === 'high' && !fxRAF) fxRAF = requestAnimationFrame(fxFrame);
+  });
+  window.addEventListener('resize', () => { if (simOn) fxResize(); });
+  paintTier();
 
   let state = { nodes: [], wires: [] };
   let pending = null;       // terminal key awaiting pair
@@ -510,6 +596,7 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
       voltMap[nd.id + ':v+'] = voltMap[root] !== undefined ? voltMap[root] : 0.0;
     });
     drawWires();
+    if (simOn && gfxTier === 'high') { fxSpawn(); if (!fxRAF && !document.hidden) fxRAF = requestAnimationFrame(fxFrame); }
     const latched = Object.values(latchMap).some(Boolean);
     say(latched ? '🟢 المحاكاة تعمل — القفل ممسوك، التيار يسري' : '🟢 المحاكاة تعمل — انقر زرًا لمسك القفل', true);
   }
@@ -529,10 +616,12 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
     setSimUI();
     beep(false);
     simTick();
+    fxStart();
   }
   function stopSim() {
     simOn = false;
     voltMap = {};
+    fxStop();
     setSimUI();
     drawWires();
   }
@@ -574,6 +663,9 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 
   /* ---------------- save / share / load ---------------- */
   async function cloudSession() {
+    try {
+      if (localStorage.getItem('wattouna-offline') === '1') return null; // workshop mode
+    } catch (e) {}
     if (!isSupabaseConfigured || !supabase) return null;
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -649,8 +741,10 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   }
 
   (async function init() {
-    cloudPill.textContent = (isSupabaseConfigured && supabase) ? '☁️ السحابة مفعّلة' : '💾 وضع محلي';
-    cloudPill.className = 'pill ' + ((isSupabaseConfigured && supabase) ? 'green' : 'amber');
+    let ws = false;
+    try { ws = localStorage.getItem('wattouna-offline') === '1'; } catch (e) {}
+    cloudPill.textContent = ws ? '🧰 ورشة دون اتصال' : (isSupabaseConfigured && supabase) ? '☁️ السحابة مفعّلة' : '💾 وضع محلي';
+    cloudPill.className = 'pill ' + (ws ? 'amber' : (isSupabaseConfigured && supabase) ? 'green' : 'amber');
     const q = new URLSearchParams(location.search);
     const loadId = q.get('id') || q.get('fork');
     const isFork = q.has('fork');
@@ -705,6 +799,7 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   .wb-help { margin: 0; color: var(--muted); font-size: .8rem; }
   .wb-canvas { position: relative; height: 560px; background: radial-gradient(circle at 1px 1px, #1f3152 1px, transparent 1px) 0 0/22px 22px, var(--canvas); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; touch-action: none; }
   #wbSvg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #wbFx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
   #wbNodes { position: absolute; inset: 0; }
   .wb-node { position: absolute; width: 184px; background: var(--card); border: 1.5px solid var(--cyan); border-radius: 12px; font-size: .8rem; box-shadow: 0 10px 28px rgba(0,0,0,.5); }
   .wb-node-head { display: flex; justify-content: space-between; align-items: center; gap: .4rem; padding: .35rem .55rem; border-radius: 10px 10px 0 0; cursor: grab; touch-action: none; }

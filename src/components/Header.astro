@@ -17,6 +17,8 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
       <a href="/profile">ملفي الشخصي</a>
     </nav>
     <div class="nav-cta">
+      <span id="netPill" class="pill green" title="حالة الاتصال">🌐 متصل</span>
+      <button id="workshopBtn" class="ws-btn" title="وضع الورشة دون اتصال: حفظ محلي فقط">🧰 ورشة</button>
       <ThemeSwitcher />
       <span id="authArea" class="auth-area"><span class="pill">…</span></span>
       <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">☰</button>
@@ -107,8 +109,40 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   })();
 </script>
 
+<script>
+(function () {
+  var pill = document.getElementById('netPill');
+  var btn = document.getElementById('workshopBtn');
+  if (!pill || !btn) return;
+  function workshop() {
+    try { return localStorage.getItem('wattouna-offline') === '1'; } catch (e) { return false; }
+  }
+  function paint() {
+    var off = !navigator.onLine, ws = workshop();
+    pill.textContent = off ? '📴 دون اتصال' : ws ? '🧰 ورشة (محلي)' : '🌐 متصل';
+    pill.className = 'pill ' + (off || ws ? 'amber' : 'green');
+    btn.classList.toggle('on', ws);
+  }
+  btn.addEventListener('click', function () {
+    try {
+      localStorage.setItem('wattouna-offline', workshop() ? '0' : '1');
+    } catch (e) {}
+    paint();
+  });
+  window.addEventListener('online', paint);
+  window.addEventListener('offline', paint);
+  paint();
+})();
+</script>
+
 <style>
   .auth-area { display: flex; align-items: center; gap: .5rem; }
+  .ws-btn {
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    border-radius: 999px; padding: .45rem .8rem; cursor: pointer;
+    font-family: inherit; font-size: .82rem;
+  }
+  .ws-btn.on { border-color: var(--amber); box-shadow: 0 0 10px rgba(245,158,11,.35); }
   .auth-user { display: flex; align-items: center; gap: .5rem; position: relative; background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: .25rem .6rem .25rem .3rem; }
   .auth-user img { width: 28px; height: 28px; border-radius: 50%; }
   .auth-ph { width: 28px; height: 28px; display: grid; place-items: center; background: var(--surface2); border-radius: 50%; }
