@@ -1,0 +1,10 @@
+# Wattouna nightly trainer dependencies (system Python 3.10, CUDA).
+# Install: pip install -r scripts/trainer-requirements.txt
+torch
+transformers>=4.40
+peft>=0.11
+trl>=0.9
+accelerate>=0.30
+datasets>=2.18
+# Optional (enables WebGPU quantization + OTA deploy):
+# mlc-llm
