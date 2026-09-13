@@ -206,11 +206,33 @@ async function main() {
 
   const d = new Date();
   const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
+  // clean URL slug: wattouna-ai-<template-key>-<stamp> (unique per cycle)
   const slug = `wattouna-ai-${pick.t.key}-${stamp}`;
+  const wires = pick.state.wires.map((w) => `- \`${w.a}\` ↔ \`${w.b}\` (${w.color})`).join('\n');
+  const description = [
+    `## نظرة هندسية`,
+    pick.t.desc,
+    ``,
+    `## مسار الطاقة`,
+    `بطارية 10S (36V) ← قفل 0.00mA (IRF4905/TL431، عتبة 31.00V) ← قضيب Latched ← الأحمال. الشحن عبر MPPT حتى 42.0V بكفاءة ~90%.`,
+    ``,
+    `## قائمة المكونات (BOM)`,
+    ...pick.t.bom.map((b, i) => `${i + 1}. ${b}`),
+    ``,
+    `## التوصيلات (Netlist)`,
+    wires,
+    ``,
+    `## السلامة`,
+    `- فيوز 15A أول عنصر بعد البطارية. لا تتجاوز BMS أو الفيوز أبدًا.`,
+    `- أسلاك AWG 14 للقدرة / AWG 20 للمنطق. وصلات WAGO 221 بدون لحام.`,
+    `- تحقق 0.00mA بالملتيميتر بعد STOP قبل أي تعديل.`,
+    ``,
+    `*تأثير تقديري: **${pick.t.impactWh}Wh** طاقة معاد تدويرها 🌱 — مولّد آليًا ومفحوص (Union-Find) بواسطة مختبر واطنا.*`,
+  ].join('\n');
   const ins = await api('POST', '/rest/v1/projects', {
     author_id: BOT_ID,
     title: `${pick.t.title} — #${runCount + 1}`,
-    description: `${pick.t.desc}\n\n**BOM:** ${pick.t.bom.join('، ')}\n\n*تأثير تقديري: ${pick.t.impactWh}Wh طاقة معاد تدويرها 🌱 — مولّد آليًا ومفحوص (Union-Find) بواسطة مختبر واطنا.*`,
+    description,
     slug,
     canvas_state: pick.state,
     is_public: true,

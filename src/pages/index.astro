@@ -6,6 +6,9 @@ import AssemblyGuide from '../components/AssemblyGuide.astro';
 import DownloadHub from '../components/DownloadHub.astro';
 import SmartSourcingRadar from '../components/SmartSourcingRadar.astro';
 
+const SUPA_URL = import.meta.env.PUBLIC_SUPABASE_URL || '';
+const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
+
 const thumb = (inner: string) =>
   `<svg viewBox="0 0 40 40" width="38" height="38" aria-hidden="true"><rect x="2" y="2" width="36" height="36" rx="9" fill="var(--surface2)" stroke="var(--border)"/>${inner}</svg>`;
 
@@ -32,45 +35,112 @@ const bom = [
 ];
 ---
 <BaseLayout>
-  <!-- HERO -->
+  <!-- HERO : ecosystem vision -->
   <div class="container hero" id="hero">
     <div>
-      <span class="eyebrow">☀️ عتاد مفتوح • بدون لحام • بطاريات مُعاد تدويرها</span>
-      <h1>اصنع محطة طاقتك الشمسية <span class="amber">المستقلة</span> <span class="cyan">بنفسك</span></h1>
+      <span class="eyebrow">🌍 منظومة مفتوحة المصدر • تعليم • محاكاة • تصنيع</span>
+      <h1>واطنا: المنصة المفتوحة للسيادة الطاقية <span class="amber">والابتكار العتادي</span> ⚡</h1>
       <p class="lead">
-        واطُنا تُدمقرط الطاقة اللامركزية: حوّل بطاريات السكوتر المهملة إلى مولّد شمسي محمول.
-        مشروع الإطلاق <b>PBX-36 Modular Ultra</b> — نظام 36V بتسريب استعداد حقيقي
-        <b dir="ltr">0.00mA</b>، فصل تلقائي عند <b dir="ltr">31.00V</b>، وشحن شمسي حتى <b dir="ltr">160W</b>.
-        مخططات مفتوحة، وحدات جاهزة من السوق، وتجميع معياري بدون لحام.
+        منصة تعليمية ومختبر رقمي مفتوح المصدر لإعادة تدوير البطاريات، هندسة أنظمة الطاقة الذاتية،
+        وابتكار دارات إلكترونية مستدامة بدون قيود — صمم في المتصفح، حاكِ الفيزياء، اطبع، وشارك.
       </p>
       <div class="hero-actions">
-        <a href="#model3d" class="btn btn-amber">🔍 استكشف مشروع PBX-36</a>
-        <a href="#calculator" class="btn btn-ghost">🧮 احسب استهلاكك</a>
-        <a href="#guide" class="btn btn-ghost">🧰 دليل التجميع</a>
+        <a href="/workbench" class="btn btn-amber">🧪 دخول المختبر التفاعلي</a>
+        <a href="/community" class="btn btn-ghost">🌍 استكشاف مشاريع المجتمع</a>
+        <a href="/projects/pbx-36" class="btn btn-ghost">🚀 المشروع الرائد</a>
       </div>
       <div class="stat-row">
         <div class="stat"><b dir="ltr" style="color:var(--amber)">0.00mA</b><span>تسريب الاستعداد — صفر حقيقي</span></div>
         <div class="stat"><b dir="ltr" style="color:var(--cyan)">336Wh</b><span>سعة صافية قابلة للاستخدام</span></div>
-        <div class="stat"><b dir="ltr" style="color:var(--green)">160W</b><span>أقصى دخل شمسي MPPT</span></div>
+        <div class="stat"><b dir="ltr" style="color:var(--green)">4h</b><span>نبض مختبر الذكاء الاصطناعي</span></div>
       </div>
     </div>
     <div class="hero-card">
-      <span class="pill amber">المشروع الرائد 🚀</span>
+      <span class="pill amber">المشروع الرائد: محطة PBX-36 المعيارية 🚀</span>
       <h2 style="margin:.6rem 0">PBX-36 Modular Ultra</h2>
-      <p style="color:var(--muted);margin-top:0">مولّد شمسي معياري محمول ببطاريات سكوتر مُعاد تدويرها — صممه، اجمعه، وشاركه.</p>
+      <p style="color:var(--muted);margin-top:0">مولّد شمسي محمول 36V — 336Wh، قفل 0.00mA، شحن MPPT 160W.</p>
       <ul style="padding-inline-start:1.2rem;color:var(--muted);font-size:.93rem">
         <li>🔋 بطارية 10S ليثيوم — <span dir="ltr">336Wh</span> صافية</li>
         <li>🔌 فصل ذاتي عند <span dir="ltr">31.00V</span> عبر P-MOSFET / TL431</li>
         <li>☀️ شحن رافع MPPT حتى <span dir="ltr">160W</span> بكفاءة 90%</li>
         <li>⚡ مخارج: USB-C PD ‏100W + ‏12V/10A + ‏220V</li>
-        <li>🧩 تجميع WAGO 221 — صفر لحام</li>
       </ul>
       <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem">
-        <a href="#bom" class="btn btn-cyan" style="padding:.55rem 1.1rem">📋 قائمة المكونات</a>
-        <a href="#guide" class="btn btn-ghost" style="padding:.55rem 1.1rem">ابدأ التجميع ←</a>
+        <a href="/projects/pbx-36" class="btn btn-cyan" style="padding:.55rem 1.1rem">📖 استعراض الدليل الهندسي الكامل</a>
+        <a href="/workbench?fork=pbx36" class="btn btn-ghost" style="padding:.55rem 1.1rem">🧪 جرّبه في المختبر</a>
       </div>
     </div>
   </div>
+
+  <!-- PILLARS -->
+  <section class="block container" id="pillars">
+    <div class="section-head">
+      <span class="kicker">🏛️ ركائز المنصة</span>
+      <h2>ثلاث ركائز لسيادتك الطاقية</h2>
+    </div>
+    <div class="grid-3">
+      <div class="card lift"><b>🧪 المختبر التفاعلي والمحاكاة الحية</b><p style="color:var(--muted)">صمم واختبر دارات حقيقية في المتصفح مع محاكاة فيزيائية لحركة التيار والأخطاء — بأسلوب Tinkercad وPhET.</p><a href="/workbench" class="btn btn-ghost" style="padding:.45rem 1rem">افتح المختبر ←</a></div>
+      <div class="card lift"><b>🤖 مختبر الذكاء الاصطناعي المستقل</b><p style="color:var(--muted)">رادار ومحرك ذكاء اصطناعي يبتكر ويحلل وينشر مشاريع وحلول طاقة نظيفة جديدة كل 4 ساعات.</p><a href="/community" class="btn btn-ghost" style="padding:.45rem 1rem">شاهد الإنتاج ←</a></div>
+      <div class="card lift"><b>♻️ الاقتصاد الدائري ورسكلة البطاريات</b><p style="color:var(--muted)">تحويل بطاريات السكوتر والأجهزة التالفة إلى محطات طاقة منزلية وشمسية آمنة — صفر نفايات.</p><a href="#guide" class="btn btn-ghost" style="padding:.45rem 1rem">دليل الرسكلة ←</a></div>
+    </div>
+  </section>
+
+  <!-- LIVE FEED -->
+  <section class="block container" id="trending">
+    <div class="section-head">
+      <span class="kicker">🔥 بث حي — المجتمع + مختبر الذكاء</span>
+      <h2>أحدث المشاريع المحققة</h2>
+      <p>تُسحب لحظيًا من قاعدة البيانات — دارات المجتمع وابتكارات مختبر واطنا.</p>
+    </div>
+    <div id="feedGrid" class="grid-3"><div class="card"><p>⏳ جارٍ تحميل البث الحي…</p></div></div>
+  </section>
+
+  <script type="module" define:vars={{ SUPA_URL, SUPA_ANON }}>
+  (function () {
+    var grid = document.getElementById('feedGrid');
+    if (!grid) return;
+    var esc = function (s) { return String(s ?? '').replace(/</g, '&lt;'); };
+    var NCOL = { battery: '#22c55e', mppt: '#f59e0b', latch: '#a855f7', usb: '#38bdf8', buck: '#38bdf8', wago: '#eab308', meter: '#f43f5e', button: '#94a3b8' };
+    function thumb(st) {
+      var nodes = (st && st.nodes) || [], wires = (st && st.wires) || [];
+      var T = {}, s = '<svg viewBox="0 0 220 110" width="100%" height="80" aria-hidden="true"><rect width="220" height="110" style="fill:var(--canvas)"/>';
+      nodes.forEach(function (n, i) {
+        var x = 14 + (i % 4) * 52, y = 14 + Math.floor(i / 4) * 38;
+        T[n.id] = { x: x + 20, y: y + 12 };
+        s += '<rect x="' + x + '" y="' + y + '" width="40" height="24" rx="5" fill="' + (NCOL[n.type] || '#64748b') + '" opacity=".85"/>';
+      });
+      wires.forEach(function (w) {
+        var ka = String(w.a || '').split(':')[0], kb = String(w.b || '').split(':')[0];
+        var a = T[ka], b = T[kb];
+        if (!a || !b || ka === kb) return;
+        s += '<line x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '" stroke="' + (w.color || '#38bdf8') + '" stroke-width="1.6" opacity=".9"/>';
+      });
+      return s + '</svg>';
+    }
+    function card(p) {
+      var st = p.canvas_state || {};
+      var wh = (st.meta && st.meta.impactWh) || p.upcycled || null;
+      var link = '/projects/' + (p.slug || p.id);
+      return '<div class="card lift"><div>' + thumb(st) + '</div><b>' + esc(p.title || 'دارة') + '</b>'
+        + '<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin:.3rem 0">'
+        + (wh ? '<span class="pill green" dir="ltr">+' + wh + ' Wh 🌱</span>' : '')
+        + '<span class="pill cyan">🧩 ' + ((st.nodes || []).length) + ' • 🔌 ' + ((st.wires || []).length) + '</span></div>'
+        + '<a class="btn btn-cyan" style="padding:.45rem 1rem" href="' + link + '">فتح الصفحة الهندسية ←</a></div>';
+    }
+    var pbx = '<div class="card lift"><div><b style="font-size:1.6rem">🚀</b></div><b>محطة PBX-36 المعيارية</b>'
+      + '<div style="display:flex;gap:.4rem;margin:.3rem 0"><span class="pill green" dir="ltr">+336 Wh 🌱</span><span class="pill amber">المشروع الرائد</span></div>'
+      + '<a class="btn btn-amber" style="padding:.45rem 1rem" href="/projects/pbx-36">الدليل الكامل ←</a></div>';
+    if (!SUPA_URL || !SUPA_ANON) { grid.innerHTML = pbx; return; }
+    fetch(SUPA_URL + '/rest/v1/projects?select=id,slug,title,canvas_state&is_public=eq.true&order=created_at.desc&limit=6',
+      { headers: { apikey: SUPA_ANON } })
+      .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (rows) {
+        grid.innerHTML = pbx + (rows || []).map(card).join('') ||
+          pbx + '<div class="card">لا مشاريع بعد.</div>';
+      })
+      .catch(function () { grid.innerHTML = pbx; });
+  })();
+  </script>
 
   <!-- CALCULATOR -->
   <section class="block container" id="calculator">

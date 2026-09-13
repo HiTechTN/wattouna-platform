@@ -27,6 +27,16 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
           </select>
         </label>
       </div>
+      <div class="wb-row wb-simbar">
+        <button id="wbStart" class="btn btn-amber wb-btn">▶️ بدء المحاكاة</button>
+        <button id="wbStop" class="btn btn-ghost wb-btn" hidden>⏹️ إيقاف</button>
+        <span id="wbSimState" class="pill">⏸️ متوقف</span>
+        <span class="wb-zoom">
+          <button id="wbZoomOut" aria-label="تصغير">−</button>
+          <button id="wbZoomReset" aria-label="إعادة العرض">⌂ <span id="wbZoomLvl" dir="ltr">100%</span></button>
+          <button id="wbZoomIn" aria-label="تكبير">＋</button>
+        </span>
+      </div>
       <div class="wb-row">
         <button id="wbValidate" class="btn btn-amber wb-btn">🔍 فحص التوصيل</button>
         <button id="wbSave" class="btn btn-cyan wb-btn">💾 حفظ المشروع</button>
@@ -35,7 +45,7 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
         <span id="wbMsg" class="wb-msg"></span>
       </div>
       <div class="wb-palette" id="wbPalette"></div>
-      <p class="wb-help">🖱️ انقر طرفًا (يلمع) ثم الطرف الثاني لرسم سلك • نقرة مزدوجة / زر يمين على سلك لحذفه • اسحب المكونات من رأسها • يعمل باللمس 📱</p>
+      <p class="wb-help">🖱️ انقر طرفًا (يلمع) ثم الطرف الثاني لرسم سلك • نقرة مزدوجة / زر يمين على سلك لحذفه • اسحب المكونات من رأسها • <b>▶️ ابدأ المحاكاة</b> ثم انقر الأزرار للتبديل • اسحب الخلفية للتحريك، العجلة/القرص للتقريب • ⟳ لتدوير المكون • يعمل باللمس 📱</p>
     </div>
 
     <!-- Canvas -->
@@ -96,6 +106,15 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   let forkedFrom = null;    // original id when remixing
   let dragNode = null, dragDX = 0, dragDY = 0;
   let session = null;
+  // simulation + viewport state
+  let simOn = false;
+  const latchMap = {};      // latch node id -> latched bool
+  const view = { x: 0, y: 0, k: 1 };
+  let panState = null;
+  const pinchPts = new Map();
+  let voltMap = {};         // union root -> volts (sim)
+  const SIDES = ['l', 't', 'r', 'b'];
+  const effSide = (t, rot) => SIDES[(SIDES.indexOf(t.side) + (((rot || 0) % 4) + 4) % 4) % 4];
 
   const esc = (s) => String(s ?? '').replace(/</g, '&lt;');
   const termKey = (n, t) => n + ':' + t;
@@ -141,18 +160,43 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
     state.nodes.forEach((nd) => {
       const p = PARTS[nd.type];
       if (!p) return;
+      const rot = ((nd.rot || 0) % 4 + 4) % 4;
       const el = document.createElement('div');
-      el.className = 'wb-node';
+      el.className = 'wb-node' + (nd.pressed ? ' pressed' : '');
       el.style.left = nd.x + 'px';
       el.style.top = nd.y + 'px';
       el.style.borderColor = p.c;
       el.dataset.nid = nd.id;
-      el.innerHTML = `<div class="wb-node-head" style="background:${p.c}22"><b>${esc(p.name)}</b><button data-delnode title="حذف">✕</button></div>
-        <div class="wb-node-graphic">${renderPart(nd.type, nd.id.replace(/[^a-z0-9]/gi, ''))}</div>
-        <div class="wb-node-sub">${esc(p.sub)}</div>` +
-        p.terms.map((t) => `<button class="wb-term side-${t.side}" data-t="${esc(nd.id)}:${esc(t.id)}" style="${t.side === 'l' ? 'left' : t.side === 'r' ? 'right' : t.side === 't' ? 'top' : 'bottom'}:-7px;${t.side === 'l' || t.side === 'r' ? 'top' : 'left'}:${t.pos * 100}%" title="${esc(t.label)}">${esc(t.label)}</button>`).join('');
+      el.innerHTML = `<div class="wb-node-head" style="background:${p.c}22"><b>${esc(p.name)}</b><span><button data-rot title="تدوير 90°">⟳</button><button data-delnode title="حذف">✕</button></span></div>
+        <div class="wb-node-graphic" style="transform:rotate(${rot * 90}deg)">${renderPart(nd.type, nd.id.replace(/[^a-z0-9]/gi, ''))}</div>
+        <div class="wb-node-sub">${esc(p.sub)}${nd.type === 'button' ? (nd.pressed ? ' • <b style="color:var(--green)">مضغوط</b>' : ' • محرر') : ''}</div>` +
+        p.terms.map((t) => {
+          const s = effSide(t, rot);
+          return `<button class="wb-term side-${s}" data-t="${esc(nd.id)}:${esc(t.id)}" style="${s === 'l' ? 'left' : s === 'r' ? 'right' : s === 't' ? 'top' : 'bottom'}:-7px;${s === 'l' || s === 'r' ? 'top' : 'left'}:${t.pos * 100}%" title="${esc(t.label)}">${esc(t.label)}</button>`;
+        }).join('');
       layer.appendChild(el);
     });
+    applyView();
+    drawWires();
+  }
+
+  function applyView() {
+    layer.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.k})`;
+    layer.style.transformOrigin = '0 0';
+    const g = Math.max(8, 22 * view.k);
+    canvas.style.backgroundPosition = `${view.x}px ${view.y}px`;
+    canvas.style.backgroundSize = `${g}px ${g}px`;
+    const zl = document.getElementById('wbZoomLvl');
+    if (zl) zl.textContent = Math.round(view.k * 100) + '%';
+  }
+
+  function zoomAt(mx, my, ratio) {
+    const k2 = Math.max(0.4, Math.min(2, view.k * ratio));
+    const r = k2 / view.k;
+    view.x = mx - (mx - view.x) * r;
+    view.y = my - (my - view.y) * r;
+    view.k = k2;
+    applyView();
     drawWires();
   }
 
@@ -178,20 +222,26 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
       path.setAttribute('stroke-linecap', 'round');
       path.dataset.wid = w.id;
       path.style.cursor = 'pointer';
-      const del = (e) => { e.preventDefault(); e.stopPropagation(); state.wires = state.wires.filter((x) => x.id !== w.id); drawWires(); };
+      const del = (e) => { e.preventDefault(); e.stopPropagation(); state.wires = state.wires.filter((x) => x.id !== w.id); drawWires(); if (simOn) simTick(); };
       path.addEventListener('dblclick', del);
       path.addEventListener('contextmenu', del);
       svg.appendChild(path);
     });
-    // live voltmeters: powered v+ shows bus voltage, floating shows --.-
+    // live voltmeters: sim → computed node voltage; idle → 36.0 if wired
     const live = new Set();
     state.wires.forEach((w) => { live.add(w.a); live.add(w.b); });
     state.nodes.forEach((nd) => {
       if (nd.type !== 'meter') return;
-      const on = live.has(nd.id + ':v+');
+      let txt = '--.-', col = '#7f1d1d';
+      if (simOn && voltMap[nd.id + ':v+'] !== undefined) {
+        const v = voltMap[nd.id + ':v+'];
+        txt = v.toFixed(1); col = v > 0 ? '#ef4444' : '#7f1d1d';
+      } else if (!simOn && live.has(nd.id + ':v+')) {
+        txt = '36.0'; col = '#ef4444';
+      }
       layer.querySelectorAll(`[data-nid="${CSS.escape(nd.id)}"] .wb-volt`).forEach((t) => {
-        t.textContent = on ? '36.0' : '--.-';
-        t.setAttribute('fill', on ? '#ef4444' : '#7f1d1d');
+        t.textContent = txt;
+        t.setAttribute('fill', col);
       });
     });
     // pending highlight
@@ -202,44 +252,125 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 
   /* ---------------- interactions ---------------- */
   layer.addEventListener('click', (e) => {
+    const rot = e.target.closest('[data-rot]');
+    if (rot) {
+      const nid = rot.closest('.wb-node').dataset.nid;
+      const nd = state.nodes.find((n) => n.id === nid);
+      if (nd) { nd.rot = (((nd.rot || 0) + 1) % 4 + 4) % 4; render(); if (simOn) simTick(); }
+      return;
+    }
     const del = e.target.closest('[data-delnode]');
     if (del) {
       const nid = del.closest('.wb-node').dataset.nid;
       state.nodes = state.nodes.filter((n) => n.id !== nid);
       state.wires = state.wires.filter((w) => !w.a.startsWith(nid + ':') && !w.b.startsWith(nid + ':'));
       render();
+      if (simOn) simTick();
       return;
     }
+    const nodeBody = e.target.closest('.wb-node');
     const term = e.target.closest('.wb-term');
-    if (!term) return;
+    if (!term && nodeBody && simOn) {
+      // tactile button toggle during simulation (Wokwi style)
+      const nd = state.nodes.find((n) => n.id === nodeBody.dataset.nid);
+      if (nd && nd.type === 'button') {
+        nd.pressed = !nd.pressed;
+        beep(false);
+        render();
+        simTick();
+        say(nd.pressed ? '🔘 الزر مضغوط (NO مغلق)' : '🔘 الزر محرر (NC مغلق)', true);
+        return;
+      }
+    }
+    if (!term) {
+      if (pending && !e.target.closest('.wb-node')) { pending = null; drawWires(); }
+      return;
+    }
     const key = term.getAttribute('data-t');
     if (!pending) { pending = key; drawWires(); say('اختر الطرف الثاني…'); return; }
     if (pending === key) { pending = null; drawWires(); return; }
     state.wires.push({ id: uid(), a: pending, b: key, color: colorSel.value });
     pending = null;
     drawWires();
+    if (simOn) simTick(true);
     say(`سلك جديد (${state.wires.length}) ✅`, true);
   });
 
   layer.addEventListener('pointerdown', (e) => {
     const head = e.target.closest('.wb-node-head');
-    if (!head || e.target.closest('[data-delnode]')) return;
+    if (!head || e.target.closest('[data-delnode]') || e.target.closest('[data-rot]')) return;
     const nodeEl = head.closest('.wb-node');
     const nid = nodeEl.dataset.nid;
     const nd = state.nodes.find((n) => n.id === nid);
     if (!nd) return;
     dragNode = nd;
     const r = nodeEl.getBoundingClientRect(), c = canvas.getBoundingClientRect();
-    dragDX = e.clientX - r.left;
-    dragDY = e.clientY - r.top;
+    dragDX = (e.clientX - r.left) / view.k;
+    dragDY = (e.clientY - r.top) / view.k;
     nodeEl.setPointerCapture?.(e.pointerId);
     e.preventDefault();
   });
+
+  // canvas pan (background) + pinch zoom; node drag stays on window handler
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.wb-node') || e.target.closest('#wbSvg path')) return;
+    pinchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinchPts.size === 2) {
+      const [a, b] = [...pinchPts.values()];
+      panState = { pinch: true, d0: Math.hypot(a.x - b.x, a.y - b.y), k0: view.k, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, x0: view.x, y0: view.y };
+    } else {
+      panState = { sx: e.clientX, sy: e.clientY, x0: view.x, y0: view.y, moved: false };
+    }
+    canvas.setPointerCapture?.(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!pinchPts.has(e.pointerId)) return;
+    pinchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!panState) return;
+    if (panState.pinch && pinchPts.size >= 2) {
+      const [a, b] = [...pinchPts.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      const c = canvas.getBoundingClientRect();
+      const mx = (a.x + b.x) / 2 - c.left, my = (a.y + b.y) / 2 - c.top;
+      const k2 = Math.max(0.4, Math.min(2, panState.k0 * d / panState.d0));
+      const r = k2 / panState.k0;
+      view.x = mx - (mx - panState.x0) * r;
+      view.y = my - (my - panState.y0) * r;
+      view.k = k2;
+      applyView();
+      drawWires();
+      return;
+    }
+    if (!panState.pinch) {
+      const dx = e.clientX - panState.sx, dy = e.clientY - panState.sy;
+      if (Math.abs(dx) + Math.abs(dy) > 4) panState.moved = true;
+      view.x = panState.x0 + dx;
+      view.y = panState.y0 + dy;
+      applyView();
+      drawWires();
+    }
+  });
+  const endPan = (e) => {
+    pinchPts.delete(e.pointerId);
+    if (pinchPts.size < 2) panState = null;
+    if (pinchPts.size === 1) {
+      const [p] = [...pinchPts.values()];
+      panState = { sx: p.x, sy: p.y, x0: view.x, y0: view.y, moved: true };
+    }
+  };
+  canvas.addEventListener('pointerup', endPan);
+  canvas.addEventListener('pointercancel', endPan);
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const c = canvas.getBoundingClientRect();
+    zoomAt(e.clientX - c.left, e.clientY - c.top, Math.exp(-e.deltaY * 0.0012));
+  }, { passive: false });
+
   window.addEventListener('pointermove', (e) => {
     if (!dragNode) return;
     const c = canvas.getBoundingClientRect();
-    dragNode.x = Math.max(0, Math.min(e.clientX - c.left - dragDX, c.width - 120));
-    dragNode.y = Math.max(0, Math.min(e.clientY - c.top - dragDY, c.height - 60));
+    dragNode.x = Math.max(0, (e.clientX - c.left - view.x) / view.k - dragDX);
+    dragNode.y = Math.max(0, (e.clientY - c.top - view.y) / view.k - dragDY);
     const el = layer.querySelector(`[data-nid="${CSS.escape(dragNode.id)}"]`);
     if (el) { el.style.left = dragNode.x + 'px'; el.style.top = dragNode.y + 'px'; }
     drawWires();
@@ -248,7 +379,7 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   window.addEventListener('resize', drawWires);
 
   /* ---------------- validate (short-circuit check) ---------------- */
-  function nets() {
+  function buildNets(btnLinks, latchLinks) {
     const parent = {};
     const find = (x) => { parent[x] = parent[x] || x; return parent[x] === x ? x : (parent[x] = find(parent[x])); };
     const uni = (a, b) => { parent[find(a)] = find(b); };
@@ -262,19 +393,169 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
       for (let i = 1; i < bus.length; i++) uni(bus[0], bus[i]);
     });
     state.wires.forEach((w) => { if (netOf[w.a] && netOf[w.b]) uni(w.a, w.b); });
+    (btnLinks || []).forEach(([a, b]) => { if (netOf[a] && netOf[b]) uni(a, b); });
+    (latchLinks || []).forEach(([a, b]) => { if (netOf[a] && netOf[b]) uni(a, b); });
     const sets = {};
     Object.keys(netOf).forEach((k) => { const r = find(k); (sets[r] = sets[r] || []).push(k); });
+    return { sets, netOf, find };
+  }
+  function nets() {
+    const { sets, netOf } = buildNets([], []);
     return { sets, netOf };
   }
+  function findShort(sets, netOf) {
+    for (const members of Object.values(sets)) {
+      const hasP = members.some((m) => netOf[m] === 'PWR');
+      const hasG = members.some((m) => netOf[m] === 'GND');
+      if (hasP && hasG) return members;
+    }
+    return null;
+  }
+
+  /* ---------------- simulation runtime (PhET style) ---------------- */
+  const simPill = document.getElementById('wbSimState');
+  const btnStart = document.getElementById('wbStart');
+  const btnStop = document.getElementById('wbStop');
+
+  function setSimUI() {
+    btnStart.hidden = simOn;
+    btnStop.hidden = !simOn;
+    simPill.textContent = simOn ? '🟢 المحاكاة تعمل — انقر الأزرار!' : '⏸️ متوقف';
+    simPill.className = 'pill ' + (simOn ? 'green' : '');
+    svg.classList.toggle('sim-on', simOn);
+    if (!simOn) svg.classList.remove('sim-short');
+  }
+
+  function sparkAt(x, y) {
+    const d = document.createElement('div');
+    d.className = 'wb-spark';
+    d.textContent = '✸';
+    d.style.left = x + 'px';
+    d.style.top = y + 'px';
+    canvas.appendChild(d);
+    d.addEventListener('animationend', () => d.remove());
+    setTimeout(() => d.remove(), 1500);
+  }
+
+  function shortWireXY() {
+    // prefer a wire directly joining PWR and GND terminals
+    const { netOf } = nets();
+    for (const w of state.wires) {
+      const na = netOf[w.a], nb = netOf[w.b];
+      if ((na === 'PWR' && nb === 'GND') || (na === 'GND' && nb === 'PWR')) {
+        const a = termXY(w.a), b = termXY(w.b);
+        if (a && b) return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      }
+    }
+    const c = canvas.getBoundingClientRect();
+    return { x: c.width / 2, y: c.height / 2 };
+  }
+
+  function shortTrip() {
+    const p = shortWireXY();
+    sparkAt(p.x, p.y);
+    svg.classList.add('sim-short');
+    setTimeout(() => svg.classList.remove('sim-short'), 1300);
+    beep(true);
+    alertBox.hidden = false;
+    alertBox.className = 'wb-alert bad';
+    alertBox.innerHTML = '⚡ <b>ماس كهربائي أثناء المحاكاة!</b> توقفت المحاكاة للحماية — افصل التماس بين (+) و GND ثم أعد التشغيل.';
+    setTimeout(() => { alertBox.hidden = true; }, 8000);
+  }
+
+  function simTick(fromWire) {
+    if (!simOn) return;
+    // 1. button conduction: pressed → COM–NO, released → COM–NC
+    const btnLinks = [];
+    state.nodes.forEach((nd) => {
+      if (nd.type !== 'button') return;
+      btnLinks.push(nd.pressed ? [nd.id + ':com', nd.id + ':no'] : [nd.id + ':com', nd.id + ':nc']);
+    });
+    // 2. base pass: evaluate gate nets
+    let r = buildNets(btnLinks, []);
+    const battNode = state.nodes.find((n) => n.type === 'battery');
+    const plusSet = battNode ? r.find(battNode.id + ':plus') : null;
+    const gndSet = battNode ? r.find(battNode.id + ':gnd') : null;
+    // 3. latch memory: gate energized → latch on; gate grounded → latch off
+    const latchLinks = [];
+    state.nodes.forEach((nd) => {
+      if (nd.type !== 'latch') return;
+      const g = r.find(nd.id + ':gate');
+      if (plusSet && g === plusSet) latchMap[nd.id] = true;
+      else if (gndSet && g === gndSet) latchMap[nd.id] = false;
+      if (latchMap[nd.id]) latchLinks.push([nd.id + ':in', nd.id + ':out']);
+    });
+    // 4. full pass with latch conduction
+    r = buildNets(btnLinks, latchLinks);
+    const short = findShort(r.sets, r.netOf);
+    if (short) {
+      stopSim();
+      shortTrip();
+      say('❌ ماس أثناء المحاكاة — توقفت!', false);
+      return;
+    }
+    // 5. voltage propagation: battery 36V, buck 12V
+    voltMap = {};
+    if (battNode) {
+      const p36 = r.find(battNode.id + ':plus');
+      voltMap[p36] = 36.0;
+      state.nodes.forEach((nd) => {
+        if (nd.type === 'buck' && r.find(nd.id + ':vin') === p36) voltMap[r.find(nd.id + ':vout')] = 12.0;
+      });
+    }
+    // meter readings keyed by terminal for drawWires
+    state.nodes.forEach((nd) => {
+      if (nd.type !== 'meter') return;
+      const root = r.find(nd.id + ':v+');
+      voltMap[nd.id + ':v+'] = voltMap[root] !== undefined ? voltMap[root] : 0.0;
+    });
+    drawWires();
+    const latched = Object.values(latchMap).some(Boolean);
+    say(latched ? '🟢 المحاكاة تعمل — القفل ممسوك، التيار يسري' : '🟢 المحاكاة تعمل — انقر زرًا لمسك القفل', true);
+  }
+
+  function startSim() {
+    const { sets, netOf } = nets();
+    if (findShort(sets, netOf)) {
+      shortTrip();
+      say('❌ ماس كهربائي — أصلحه قبل التشغيل!', false);
+      return;
+    }
+    if (!state.nodes.some((n) => n.type === 'battery')) {
+      say('أضف بطارية أولًا! 🔋', false);
+      return;
+    }
+    simOn = true;
+    setSimUI();
+    beep(false);
+    simTick();
+  }
+  function stopSim() {
+    simOn = false;
+    voltMap = {};
+    setSimUI();
+    drawWires();
+  }
+
+  btnStart.addEventListener('click', startSim);
+  btnStop.addEventListener('click', () => { stopSim(); say('⏸️ توقفت المحاكاة'); });
+  document.getElementById('wbZoomIn').addEventListener('click', () => {
+    const c = canvas.getBoundingClientRect();
+    zoomAt(c.width / 2, c.height / 2, 1.25);
+  });
+  document.getElementById('wbZoomOut').addEventListener('click', () => {
+    const c = canvas.getBoundingClientRect();
+    zoomAt(c.width / 2, c.height / 2, 0.8);
+  });
+  document.getElementById('wbZoomReset').addEventListener('click', () => {
+    view.x = 0; view.y = 0; view.k = 1;
+    applyView();
+    drawWires();
+  });
 
   document.getElementById('wbValidate').addEventListener('click', () => {
     const { sets, netOf } = nets();
-    let short = null;
-    for (const [rootK, members] of Object.entries(sets)) {
-      const hasP = members.some((m) => netOf[m] === 'PWR');
-      const hasG = members.some((m) => netOf[m] === 'GND');
-      if (hasP && hasG) { short = members; break; }
-    }
+    const short = findShort(sets, netOf);
     alertBox.hidden = false;
     if (short) {
       alertBox.className = 'wb-alert bad';
@@ -344,6 +625,8 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 
   document.getElementById('wbClear').addEventListener('click', () => {
     if (!state.nodes.length || confirm('مسح اللوحة بالكامل؟')) {
+      stopSim();
+      for (const k of Object.keys(latchMap)) delete latchMap[k];
       state = { nodes: [], wires: [] };
       editingId = null; forkedFrom = null;
       history.replaceState(null, '', '/workbench');
@@ -449,4 +732,41 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
     .wb-node { width: 160px; }
     .wb-btn { font-size: .8rem; padding: .5rem .8rem; }
   }
+  /* ---- simulation runtime ---- */
+  .wb-simbar { align-items: center; }
+  .wb-zoom { display: inline-flex; gap: .25rem; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: .2rem .4rem; }
+  .wb-zoom button { background: transparent; border: none; color: var(--text); cursor: pointer; font-size: .95rem; padding: .25rem .55rem; border-radius: 8px; font-family: inherit; }
+  .wb-zoom button:hover { background: var(--surface2); }
+  .wb-zoom span { font-size: .78rem; color: var(--muted); }
+  #wbNodes { pointer-events: none; }
+  .wb-node, .wb-term, #wbSvg path { pointer-events: auto; }
+  .wb-canvas.panning { cursor: grabbing; }
+  #wbSvg.sim-on path {
+    stroke-dasharray: 9 7;
+    animation: wb-flow .45s linear infinite;
+  }
+  @keyframes wb-flow { to { stroke-dashoffset: -16; } }
+  #wbSvg.sim-short path {
+    stroke: #ef4444 !important;
+    filter: drop-shadow(0 0 8px #ef4444);
+    animation: wb-blink .18s 6;
+  }
+  @keyframes wb-blink { 50% { opacity: .3; } }
+  .wb-spark {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    font-size: 2.2rem;
+    color: #fbbf24;
+    text-shadow: 0 0 18px #ef4444, 0 0 34px #f59e0b;
+    pointer-events: none;
+    z-index: 5;
+    animation: wb-sparkpop .9s ease-out forwards;
+  }
+  @keyframes wb-sparkpop {
+    0% { transform: translate(-50%, -50%) scale(.4) rotate(0deg); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(2.8) rotate(120deg); opacity: 0; }
+  }
+  .wb-node.pressed { outline: 2px solid var(--green); box-shadow: 0 0 18px rgba(34,197,94,.5); }
+  .wb-node-graphic svg { transition: transform .25s ease; }
+  .wb-node-head span { display: inline-flex; gap: .15rem; }
 </style>

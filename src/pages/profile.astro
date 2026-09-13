@@ -55,7 +55,7 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
     const nn = (st.nodes || []).length, nw = (st.wires || []).length;
     return `<div class="card prof-card lift">
       ${miniThumb(st)}
-      <b>${esc(p.title || 'دارة بدون عنوان')}</b>
+      <b><a href="/projects/${p.slug || p.id}">${esc(p.title || 'دارة بدون عنوان')}</a></b>
       <small>🧩 ${nn} مكوّنات • 🔌 ${nw} أسلاك • 📅 ${fmtDate(p.created_at)}</small>
       ${p.forked_from ? `<small>🍴 منسوخة من <a href="/workbench?id=${p.forked_from}">التصميم الأصلي</a></small>` : ''}
       <div class="prof-actions">

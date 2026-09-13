@@ -1,0 +1,252 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+export const prerender = false;
+
+const SUPA_URL = import.meta.env.PUBLIC_SUPABASE_URL || '';
+const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
+const slug = Astro.params.slug || '';
+
+const NET_LABEL: Record<string, string> = { PWR: '+ طاقة', GND: 'أرضي', BUS: 'مشترك', SIG: 'إشارة' };
+const TERM_LABEL: Record<string, Record<string, string>> = {
+  battery: { plus: '+36V', gnd: 'GND' },
+  mppt: { 'sol+': 'S+', 'sol-': 'S-', 'out+': 'B+', 'out-': 'B-' },
+  latch: { in: 'IN+', gate: 'GATE', out: 'OUT+', gnd: 'GND' },
+  usb: { vin: 'V+', gnd: 'GND', usbc: 'USB-C' },
+  buck: { vin: 'Vin', gnd: 'GND', vout: '12V' },
+  wago: { p1: '1', p2: '2', p3: '3' },
+  meter: { 'v+': 'R+', 'v-': 'B-' },
+  button: { com: 'COM', no: 'NO', nc: 'NC' },
+};
+const NCOL: Record<string, string> = {
+  battery: '#22c55e', mppt: '#f59e0b', latch: '#a855f7', usb: '#38bdf8',
+  buck: '#38bdf8', wago: '#eab308', meter: '#f43f5e', button: '#94a3b8',
+};
+
+interface WNode { id: string; type: string; x: number; y: number }
+interface WWire { a: string; b: string; color: string }
+
+function previewSVG(nodes: WNode[], wires: WWire[]): string {
+  const W2 = 1100, H2 = 620;
+  const P: Record<string, { x: number; y: number }> = {};
+  let s = `<svg viewBox="0 0 ${W2} ${H2}" width="100%" role="img" aria-label="معاينة الدارة">`;
+  s += `<rect width="${W2}" height="${H2}" style="fill:var(--canvas)"/>`;
+  nodes.forEach((n) => {
+    const x = Math.max(8, Math.min(n.x, W2 - 190)), y = Math.max(8, Math.min(n.y, H2 - 90));
+    P[n.id] = { x: x + 88, y: y + 40 };
+    s += `<g><rect x="${x}" y="${y}" width="176" height="80" rx="12" style="fill:var(--card);stroke:${NCOL[n.type] || '#64748b'};stroke-width:2"/>`;
+    s += `<text x="${x + 12}" y="${y + 30}" fill="var(--text)" font-size="17" font-weight="bold">${esc(n.type)}</text>`;
+    s += `<text x="${x + 12}" y="${y + 54}" fill="var(--muted)" font-size="13">module</text></g>`;
+  });
+  wires.forEach((w) => {
+    const a = P[(w.a || '').split(':')[0]], b = P[(w.b || '').split(':')[0]];
+    if (!a || !b) return;
+    const dx = Math.max(60, Math.abs(b.x - a.x) / 2);
+    s += `<path d="M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x} ${b.y}" fill="none" stroke="${w.color || '#38bdf8'}" stroke-width="4" stroke-linecap="round" opacity=".9"/>`;
+  });
+  return s + '</svg>';
+}
+function esc(s: unknown): string { return String(s ?? '').replace(/</g, '&lt;'); }
+
+// minimal markdown: ## headings, - bullets, `code`, **bold**
+function md(src: string): string {
+  return esc(src)
+    .replace(/^## (.+)$/gm, '<h4 style="margin:.9rem 0 .3rem">$1</h4>')
+    .replace(/^- (.+)$/gm, '<div>• $1</div>')
+    .replace(/`([^`]+)`/g, '<code dir="ltr">$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+    .replace(/\n/g, '<br>');
+}
+
+function netlist(nodes: WNode[], wires: WWire[]) {
+  const parent: Record<string, string> = {};
+  const find = (x: string): string => { parent[x] = parent[x] ?? x; return parent[x] === x ? x : (parent[x] = find(parent[x])); };
+  nodes.forEach((n) => Object.keys(TERM_LABEL[n.type] || {}).forEach((t) => { parent[`${n.id}:${t}`] = `${n.id}:${t}`; }));
+  wires.forEach((w) => { if (parent[w.a] && parent[w.b]) parent[find(w.a)] = find(w.b); });
+  const nets: Record<string, string[]> = {};
+  Object.keys(parent).forEach((k) => { const r = find(k); (nets[r] = nets[r] || []).push(k); });
+  return Object.values(nets).filter((m) => m.length > 1).map((m) => m.map((k) => {
+    const [nid, tid] = k.split(':');
+    const nd = nodes.find((n) => n.id === nid);
+    return `${nd?.type || '?'} · ${TERM_LABEL[nd?.type || '']?.[tid] || tid}`;
+  }));
+}
+
+const PBX36 = {
+  title: 'المشروع الرائد: محطة PBX-36 المعيارية',
+  author: 'فريق واطنا', date: '2026', impact: 336, forks: 0, slug: 'pbx-36',
+  desc: 'مولّد شمسي محمول 36V ببطاريات سكوتر مُعاد تدويرها: فصل تلقائي عند 31.00V بتسريب صفري 0.00mA حقيقي، شحن MPPT حتى 160W بكفاءة 90%، ومخارج USB-C PD 100W + 12V/10A + 220V — كل ذلك بتجميع معياري بدون لحام.',
+  specs: [
+    ['🔋 السعة الصافية', '336Wh (بك 10S معاد تدويره)'],
+    ['🔌 التسريب', '0.00mA — فصل فيزيائي عبر IRF4905'],
+    ['☀️ الشحن', 'MPPT حتى 160W → 42.0V'],
+    ['⚡ المخارج', 'USB-C 100W • 12V/10A • 220V'],
+    ['🧩 التجميع', 'WAGO 221 — صفر لحام'],
+    ['🛡️ الحماية', 'فيوز 15A + عتبة 31.00V'],
+  ],
+  bom: [
+    ['وحدة LTC3780', 'رفع شمسي 42V', '160W'],
+    ['IP2368', 'USB-C PD', '100W'],
+    ['IRF4905 + TL431', 'قفل صفري', '31.00V'],
+    ['WAGO 221 ×10', 'توصيل سريع', '32A'],
+    ['بطارية 10S', 'تخزين معاد تدويره', '336Wh'],
+    ['Buck 12V/10A', 'راوتر وإنارة', '120W'],
+    ['إنفرتر Mini 220V', 'تلفاز', '150W ذروة'],
+    ['فيوز + XT60 + فولتميتر', 'حماية وواجهة', '—'],
+  ],
+  canvas: {
+    nodes: [
+      { id: 'batt', type: 'battery', x: 60, y: 120 }, { id: 'latch', type: 'latch', x: 330, y: 120 },
+      { id: 'buck', type: 'buck', x: 600, y: 120 }, { id: 'meter', type: 'meter', x: 600, y: 330 }, { id: 'usb', type: 'usb', x: 870, y: 120 },
+    ] as WNode[],
+    wires: [
+      { a: 'batt:plus', b: 'latch:in', color: '#ef4444' }, { a: 'batt:gnd', b: 'latch:gnd', color: '#94a3b8' },
+      { a: 'latch:out', b: 'buck:vin', color: '#f59e0b' }, { a: 'batt:gnd', b: 'buck:gnd', color: '#94a3b8' },
+      { a: 'latch:out', b: 'usb:vin', color: '#f59e0b' }, { a: 'batt:gnd', b: 'usb:gnd', color: '#94a3b8' },
+      { a: 'latch:out', b: 'meter:v+', color: '#f59e0b' }, { a: 'batt:gnd', b: 'meter:v-', color: '#94a3b8' },
+    ] as WWire[],
+  },
+};
+
+let project: any = null;
+let authorName = '';
+let forkCount = 0;
+let loadError = '';
+
+if (slug === 'pbx-36') {
+  project = { ...PBX36, canvas_state: PBX36.canvas, is_public: true };
+  authorName = PBX36.author;
+} else if (SUPA_URL && SUPA_ANON) {
+  try {
+    const isId = /^[0-9a-f-]{8,}$/i.test(slug);
+    const q = isId ? `id=eq.${slug}` : `slug=eq.${encodeURIComponent(slug)}`;
+    const r = await fetch(`${SUPA_URL}/rest/v1/projects?${q}&select=*,profiles(username,display_name,avatar_url)&limit=1`,
+      { headers: { apikey: SUPA_ANON } });
+    if (r.ok) {
+      const arr = await r.json();
+      project = arr?.[0] || null;
+      if (project) {
+        authorName = project.profiles?.display_name || project.profiles?.username || 'صانع';
+        try {
+          const f = await fetch(`${SUPA_URL}/rest/v1/projects?forked_from=eq.${project.id}&select=id`, { headers: { apikey: SUPA_ANON } });
+          if (f.ok) forkCount = (await f.json()).length;
+        } catch {}
+      }
+    } else loadError = 'تعذر الاتصال بقاعدة البيانات';
+  } catch { loadError = 'تعذر الاتصال بقاعدة البيانات'; }
+} else {
+  loadError = 'قاعدة البيانات غير مربوطة في هذا البناء';
+}
+
+const nodes: WNode[] = project?.canvas_state?.nodes || [];
+const wires: WWire[] = project?.canvas_state?.wires || [];
+const meta = project?.canvas_state?.meta || {};
+const impact = project?.impact ?? meta.impactWh ?? project?.upcycled ?? '—';
+const svg = nodes.length ? previewSVG(nodes, wires) : '';
+const nets = netlist(nodes, wires);
+const bomCards: string[][] = project?.slug === 'pbx-36' || slug === 'pbx-36'
+  ? PBX36.bom
+  : (meta.bom || []).map((b: string) => [b, 'مكوّن معتمد', '—']);
+---
+
+<BaseLayout title={project ? `${project.title} — Wattouna` : 'المشروع غير موجود'}>
+  <div class="container block" style="padding-top:2.2rem">
+    {!project ? (
+      <div class="card" style="text-align:center;display:grid;gap:.8rem;justify-items:center">
+        <div style="font-size:2.5rem">🔍</div>
+        <h2>المشروع غير موجود</h2>
+        <p style="color:var(--muted)">{loadError || 'تحقق من الرابط أو تصفح المشاريع المنشورة.'}</p>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center">
+          <a class="btn btn-cyan" href="/community">🌍 المشاريع</a>
+          <a class="btn btn-amber" href="/projects/pbx-36">🚀 مشروع PBX-36</a>
+        </div>
+      </div>
+    ) : (
+      <>
+        <span class="kicker">📖 الدليل الهندسي الكامل</span>
+        <h1 style="margin:.4rem 0 1rem">{project.title}</h1>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.2rem">
+          <span class="pill cyan">👤 {authorName}</span>
+          {impact !== '—' && <span class="pill green" dir="ltr">+{impact} Wh 🌱</span>}
+          {project.created_at && <span class="pill">📅 {new Date(project.created_at).toLocaleDateString('ar')}</span>}
+          {forkCount > 0 && <span class="pill amber">🍴 {forkCount} نسخ</span>}
+        </div>
+
+        {slug === 'pbx-36' && (
+          <div class="grid-3" style="margin-bottom:1.2rem">
+            {PBX36.specs.map(([k, v]) => (
+              <div class="card lift"><b>{k}</b><p style="color:var(--muted);margin:.3rem 0 0" dir="ltr">{v}</p></div>
+            ))}
+          </div>
+        )}
+
+        <div class="card" style="margin-bottom:1.2rem">
+          <h3 style="margin-top:0">🔌 معاينة الدارة الحية (للقراءة)</h3>
+          {svg ? <Fragment set:html={svg} /> : <p style="color:var(--muted)">لا معاينة متاحة.</p>}
+          <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem">
+            <a class="btn btn-amber" href={`/workbench?fork=${project.id || 'pbx36'}`}>🧪 افتح في المختبر للتعديل والمحاكاة (Remix &amp; Simulate)</a>
+            <a class="btn btn-ghost" href="/#downloads">⬇️ ملفات التصنيع</a>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:1.2rem">
+          <h3 style="margin-top:0">📝 الوصف الهندسي</h3>
+          <div style="color:var(--muted)"><Fragment set:html={md(project.description || project.desc || '')} /></div>
+        </div>
+
+        <div class="tabs">
+          <button class="tab active" data-ptab="wiring">🔌 مخطط التوصيل</button>
+          <button class="tab" data-ptab="bom">📋 المكونات ({bomCards.length})</button>
+          <button class="tab" data-ptab="safety">🛡️ الأمان والاستقلالية</button>
+        </div>
+
+        <div class="card" id="ptab-wiring" style="margin-top:1rem">
+          <h3 style="margin-top:0">Netlist — الشبكات الموصولة</h3>
+          {nets.length ? (
+            <ul>{nets.map((m) => (<li dir="ltr" style="text-align:left">{m.join('  ↔  ')}</li>))}</ul>
+          ) : (
+            <p style="color:var(--muted)">سلك واحد أو لا توصيلات — افتح في المختبر وأضف الأسلاك.</p>
+          )}
+          <p style="color:var(--muted);font-size:.85rem">الأحمر +36V • الأسود GND • البرتقالي Latched • الأزرق +12V • البنفسجي Gate. الفيوز 15A أول عنصر بعد البطارية دائمًا.</p>
+        </div>
+
+        <div class="card" id="ptab-bom" style="margin-top:1rem" hidden>
+          <h3 style="margin-top:0">قائمة المكونات</h3>
+          <div class="grid-3">
+            {bomCards.map(([a, b, c]) => (
+              <div class="card lift"><b>{a}</b><br /><small style="color:var(--muted)">{b}</small><br /><span class="pill cyan" dir="ltr">{c}</span></div>
+            ))}
+          </div>
+        </div>
+
+        <div class="card" id="ptab-safety" style="margin-top:1rem" hidden>
+          <h3 style="margin-top:0">تحليلات الأمان والاستقلالية</h3>
+          <ul>
+            <li>🔋 جهد التشغيل: <b dir="ltr">31.0V – 42.0V</b> (فصل تلقائي عند 31.00V، شحن حتى 42.0V)</li>
+            <li>🔌 الحماية: <b>فيوز 15A</b> على الإدخال + BMS البطارية الأصلي — لا تتجاوزهما أبدًا</li>
+            <li>⚡ الأسلاك: <b dir="ltr">AWG 14</b> سيليكون للقدرة، <b dir="ltr">AWG 20</b> للمنطق، وصلات WAGO 221</li>
+            <li>⏱️ الاستقلالية (بك 336Wh): مودام+إنارة ≈ <b dir="ltr">18h</b> • +تلفاز ≈ <b dir="ltr">4h</b> • لابتوب ≈ <b dir="ltr">7h</b></li>
+            <li>☀️ الشمسي: لوح حتى <b dir="ltr">160W</b> عبر MPPT (كفاءة ~90%) قد يحقق اكتفاءً ذاتيًا كاملًا ∞</li>
+          </ul>
+        </div>
+      </>
+    )}
+  </div>
+</BaseLayout>
+
+<script>
+(function () {
+  var tabs = document.querySelectorAll('[data-ptab]');
+  var panes = ['wiring', 'bom', 'safety'];
+  tabs.forEach(function (b) {
+    b.addEventListener('click', function () {
+      tabs.forEach(function (x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      panes.forEach(function (p) {
+        var el = document.getElementById('ptab-' + p);
+        if (el) el.hidden = p !== b.getAttribute('data-ptab');
+      });
+    });
+  });
+})();
+</script>

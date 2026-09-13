@@ -39,13 +39,15 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   function card(p, forks) {
     const name = p.author_name || p.profiles?.display_name || p.profiles?.username || 'صانع مجهول';
     const av = p.author_avatar || p.profiles?.avatar_url;
-    return `<div class="card prof-card">
-      <div class="com-author">${av ? `<img src="${esc(av)}" alt="" />` : '<span class="auth-ph">⚡</span>'}<span><b>${esc(p.title || 'دارة بدون عنوان')}</b><small>👤 ${esc(name)} • 📅 ${fmtDate(p.created_at)}</small></span></div>
+    const page = '/projects/' + (p.slug || p.id);
+    return `<div class="card prof-card lift">
+      <div class="com-author">${av ? `<img src="${esc(av)}" alt="" />` : '<span class="auth-ph">⚡</span>'}<span><b><a href="${page}">${esc(p.title || 'دارة بدون عنوان')}</a></b><small>👤 ${esc(name)} • 📅 ${fmtDate(p.created_at)}</small></span></div>
       <p class="com-sum">${summary(p.canvas_state)}</p>
-      ${p.description ? `<small>${esc(p.description)}</small>` : ''}
+      ${p.description ? `<small>${esc(String(p.description).slice(0, 140))}${String(p.description).length > 140 ? '…' : ''}</small>` : ''}
       <div class="prof-actions">
+        <a class="btn btn-amber prof-mini" href="${page}">📖 الصفحة الهندسية</a>
         <a class="btn btn-cyan prof-mini" href="/workbench?id=${p.id}">فتح في المختبر</a>
-        <a class="btn btn-amber prof-mini" href="/workbench?fork=${p.id}">🍴 نسخ الدارة (${forks})</a>
+        <a class="btn btn-ghost prof-mini" href="/workbench?fork=${p.id}">🍴 نسخ (${forks})</a>
       </div>
     </div>`;
   }
