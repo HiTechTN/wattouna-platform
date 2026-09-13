@@ -4,7 +4,7 @@
   "description": "Open-source solar DIY lab: workbench, simulation, AI advisor, community circuits. Works offline.",
   "lang": "ar",
   "dir": "rtl",
-  "start_url": "/?pwa=1",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",

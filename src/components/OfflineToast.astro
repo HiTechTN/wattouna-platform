@@ -1,0 +1,76 @@
+---
+---
+<div id="offToast" class="off-toast" hidden>✅ التطبيق جاهز للعمل بدون إنترنت (Offline Ready)</div>
+
+<script>
+(function () {
+  var KEY = 'wattouna-offline-toast';
+  var el = document.getElementById('offToast');
+  if (!el || !('serviceWorker' in navigator)) return;
+
+  function show() {
+    el.hidden = false;
+    setTimeout(function () { el.hidden = true; }, 5000);
+    try { localStorage.setItem(KEY, currentVersion() || 'shown'); } catch (e) {}
+  }
+  function currentVersion() {
+    return el.getAttribute('data-sw') || '';
+  }
+  // 1. live signal from the SW the moment precaching finishes
+  navigator.serviceWorker.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'WATTOUNA_CACHED') {
+      el.setAttribute('data-sw', e.data.version || 'v');
+      show();
+    }
+  });
+  // 2. on load: if SW ready + shell cached + version unseen → toast
+  function ready() {
+    var seen = '';
+    try { seen = localStorage.getItem(KEY) || ''; } catch (e) {}
+    fetch('/sw.js')
+      .then(function (r) { return r.text(); })
+      .then(function (txt) {
+        var m = txt.match(/VERSION\s*=\s*'([^']+)'/);
+        var ver = m ? m[1] : 'v';
+        el.setAttribute('data-sw', ver);
+        if (seen === ver) return;
+        return navigator.serviceWorker.ready.then(function () {
+          return caches.match('/').then(function (hit) {
+            if (hit) show();
+          });
+        });
+      })
+      .catch(function () {});
+  }
+  if (document.readyState === 'complete') ready();
+  else window.addEventListener('load', ready);
+})();
+</script>
+
+<style>
+  .off-toast {
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 120;
+    background: rgba(34, 197, 94, .16);
+    border: 1px solid rgba(34, 197, 94, .55);
+    color: var(--text);
+    border-radius: 999px;
+    padding: .6rem 1.3rem;
+    font-size: .88rem;
+    font-weight: 700;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .5);
+    animation: off-pop .35s ease-out;
+    white-space: nowrap;
+    max-width: 94vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .off-toast[hidden] { display: none; }
+  @keyframes off-pop {
+    from { transform: translateX(-50%) translateY(16px); opacity: 0; }
+    to { transform: translateX(-50%) translateY(0); opacity: 1; }
+  }
+</style>

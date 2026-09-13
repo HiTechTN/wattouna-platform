@@ -2,6 +2,7 @@
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import WattounaAI from '../components/WattounaAI.astro';
+import OfflineToast from '../components/OfflineToast.astro';
 import '../styles/global.css';
 import '../styles/theme.css';
 
@@ -46,6 +47,7 @@ const { title = 'واطُنا Wattouna — اصنع محطة طاقتك الشم
     </main>
     <Footer />
     <WattounaAI />
+    <OfflineToast />
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
