@@ -21,6 +21,9 @@
   <div class="vai-ota" id="vaiOta" hidden></div>
   <div class="vai-controls">
     <button id="vaiMic" class="vai-mic" aria-label="تحدث">🎤 تحدث</button>
+    <button id="vaiPdf" class="vai-brain" aria-label="تصدير مخطط PDF">📄 مخطط PDF</button>
+  </div>
+  <div class="vai-controls">
     <button id="vaiBrain" class="vai-brain">⬇️ تحميل العقل المحلي (مرة واحدة)</button>
   </div>
   <form id="vaiForm" class="vai-input">
@@ -30,7 +33,14 @@
 </div>
 
 <script type="module">
-  import { createBrain, parseVoiceCommand } from '/vendor/local-ai.js';
+  import { createBrain, parseVoiceCommand, analyzeCircuit, autoWire, summarizeCanvas } from '/vendor/local-ai.js';
+
+  var PART_BOM = {
+    battery: ['Battery 10S 36V', 'recycled e-scooter 336Wh'], mppt: ['LTC3780 MPPT', '18-36V to 42V 160W'],
+    latch: ['IRF4905 + TL431 latch', 'cutoff 31.00V 0.00mA'], usb: ['IP2368 USB-C PD', '100W + 18W QC'],
+    buck: ['Buck converter', '12V 10A'], wago: ['WAGO 221', 'lever connectors x10'],
+    meter: ['DC voltmeter', '0-100V panel'], button: ['Pushbutton 16mm', 'NO + NC'],
+  };
 
   var fab = document.getElementById('vaiFab');
   var panel = document.getElementById('vaiPanel');
@@ -55,7 +65,28 @@
     msgs.appendChild(d);
     msgs.scrollTop = msgs.scrollHeight;
   }
-  function setStatus(t) { statusEl.textContent = '● ' + t; }
+  function setStatus(t, mode) {
+    if (mode === 'listen') statusEl.textContent = '🎤 Listening — ' + t;
+    else if (mode === 'read') statusEl.textContent = '📖 Reading Canvas — ' + t;
+    else statusEl.textContent = '● ' + t;
+  }
+
+  function readCanvas() {
+    try {
+      if (window.__wattounaWB && window.__wattounaWB.getState) return window.__wattounaWB.getState();
+    } catch (e) {}
+    return { nodes: [], wires: [] };
+  }
+
+  function isAnalyze(q) {
+    return /افحص|تحقق|حلل|فحص|check.*circuit|analy[sz]e|diagnos/i.test(q);
+  }
+  function isWire(q) {
+    return /وصّل|وصل|أكمل التوصيل|connect|complete.*wir|wire.*up|auto.?wire/i.test(q);
+  }
+  function isPdf(q) {
+    return /pdf|مخطط|blueprint|صدّر|مخططات|export/i.test(q);
+  }
 
   function dropParts(actions) {
     actions.forEach(function (a, i) {
@@ -68,9 +99,45 @@
   async function handle(text) {
     if (!text.trim()) return;
     addMsg(text.replace(/</g, '&lt;'), 'user');
+    var state = readCanvas();
+    var summary = (state.nodes.length || state.wires.length) ? summarizeCanvas(state) : '';
+    // 1. PDF blueprint export (agentic tool)
+    if (isPdf(text)) {
+      setStatus('أجهّز المخطط…', 'read');
+      await exportPdf(state);
+      setStatus('جاهز');
+      return;
+    }
+    // 2. Circuit analysis with canvas awareness (agentic tool)
+    if (isAnalyze(text)) {
+      setStatus('أقرأ اللوحة…', 'read');
+      var res = analyzeCircuit(state);
+      var out = res.findings.map(function (f) { return f.ar; }).join('<br>');
+      addMsg(out, 'bot');
+      var danger = res.findings.filter(function (f) { return f.level === 'danger'; });
+      var say = danger.length ? danger.map(function (f) { return f.voice; }).join(' ')
+        : res.findings.length ? res.findings[0].ar.replace(/<[^>]+>/g, '') : 'Circuit analyzed.';
+      setStatus('جاهز');
+      if (voiceOn) brain.speak(say);
+      return;
+    }
+    // 3. Auto-wiring (agentic tool)
+    if (isWire(text)) {
+      setStatus('أركّب الأسلاك…', 'read');
+      var aw = autoWire(state.nodes || []);
+      if (!aw.wires.length) {
+        addMsg('🔌 ' + (aw.notesAr[0] || 'لا شيء لأوصّله.'), 'bot');
+      } else {
+        window.dispatchEvent(new CustomEvent('wattouna:ai-wire-batch', { detail: { wires: aw.wires } }));
+        addMsg('🔌 <b>auto_wire_circuit:</b><br>• ' + aw.notesAr.join('<br>• '), 'bot');
+      }
+      setStatus('جاهز');
+      if (voiceOn) brain.speak(aw.wires.length ? 'Wiring complete. ' + aw.wires.length + ' wires placed.' : 'Nothing to wire yet.');
+      return;
+    }
+    // 4. General chat (LLM with canvas context, else rules)
     setStatus('يفكر…');
-    var reply = await brain.chat(text);
-    // route canvas actions through the parser too (works with or without LLM)
+    var reply = await brain.chat(text, summary || undefined);
     var cmd = parseVoiceCommand(text);
     if (cmd.actions.length) {
       dropParts(cmd.actions);
@@ -79,6 +146,35 @@
     addMsg(reply, 'bot');
     setStatus('جاهز');
     if (voiceOn) brain.speak(reply);
+  }
+
+  async function exportPdf(state) {
+    try {
+      var hook = window.__wattounaWB;
+      if (!hook || !hook.snapshot) { addMsg('❌ افتح المختبر أولًا لأخذ لقطة الدارة.', 'bot'); return; }
+      addMsg('📄 أجمّع المخطط (لقطة + BOM + netlist)…', 'bot');
+      var mod = await import('/vendor/pdf-export.js');
+      var nodes = state.nodes || [], wires = state.wires || [];
+      var seen = {}, bom = [];
+      nodes.forEach(function (n) {
+        if (seen[n.type] || !PART_BOM[n.type]) return;
+        seen[n.type] = 1;
+        bom.push({ part: PART_BOM[n.type][0], spec: PART_BOM[n.type][1] });
+      });
+      var blob = await mod.generateBlueprint({
+        title: 'Wattouna Circuit Blueprint',
+        purpose: 'Auto-generated edge blueprint: ' + nodes.length + ' modules, ' + wires.length + ' wires. Fuse 15A first, AWG14 power, WAGO 221 joints.',
+        svgSnapshot: hook.snapshot(),
+        bom: bom.length ? bom : [{ part: 'Empty canvas', spec: 'add modules first' }],
+        wires: wires.map(function (w) { return { a: w.a, b: w.b, color: w.color }; }),
+        meta: ['PBX-36 compatible', '36V / 31.00V cutoff / 42.0V charge', 'MIT open hardware'],
+      });
+      mod.downloadBlob(blob, 'wattouna-blueprint-' + Date.now() + '.pdf');
+      addMsg('✅ تم تنزيل مخطط PDF على جهازك — يعمل دون إنترنت! 📥', 'bot');
+      if (voiceOn) brain.speak('Blueprint downloaded.');
+    } catch (e) {
+      addMsg('❌ تعذّر توليد PDF: ' + String((e && e.message) || e), 'bot');
+    }
   }
 
   fab.addEventListener('click', function () {
@@ -100,9 +196,10 @@
       return;
     }
     micBtn.textContent = '🔴 أستمع… تحدث الآن';
-    setStatus('أستمع…');
+    setStatus('أستمع…', 'listen');
     try {
       var heard = await brain.listen();
+      setStatus('سمعتك ✅');
       addMsg('🎧 سمعت: «' + heard.replace(/</g, '&lt;') + '»', 'bot');
       await handle(heard);
     } catch (e) {
@@ -110,6 +207,10 @@
       setStatus('جاهز');
     }
     micBtn.textContent = '🎤 تحدث';
+  });
+
+  document.getElementById('vaiPdf').addEventListener('click', function () {
+    handle('صدّر مخطط PDF');
   });
 
   brainBtn.addEventListener('click', async function () {
@@ -149,7 +250,7 @@
 
   setTimeout(function () {
     if (!panel.hidden) return;
-    addMsg('👋 أنا مساعد المختبر! قولي «أضف بطارية» بالصوت ولا الكتابة — ولا حمّل العقل المحلي للذكاء الكامل دون اتصال. 🧪', 'bot');
+    addMsg('👋 أنا مساعد المختبر الوكيل! «افحص دارتي» للتحليل، «وصّل المكونات» للتوصيل التلقائي، «صدّر PDF» للمخطط — أو قولي «أضف بطارية» بالصوت. 🧪', 'bot');
   }, 800);
   } // end boot()
   boot();

@@ -472,6 +472,51 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
     if (simOn) simTick();
   });
 
+  // AI batch wiring (agentic): dedup by endpoints, then re-validate
+  window.addEventListener('wattouna:ai-wire-batch', (e) => {
+    const wires = (e.detail && e.detail.wires) || [];
+    const seen = new Set(state.wires.map((w) => [w.a, w.b].sort().join('|')));
+    let added = 0;
+    wires.forEach((w) => {
+      if (!w || !w.a || !w.b) return;
+      const k = [w.a, w.b].sort().join('|');
+      if (seen.has(k)) return;
+      seen.add(k);
+      state.wires.push({ id: uid(), a: w.a, b: w.b, color: w.color || '#f59e0b' });
+      added++;
+    });
+    drawWires();
+    if (simOn) simTick();
+    say(added ? `🤖 ركّب المساعد ${added} أسلاك ✅` : 'الأسلاك موجودة مسبقًا 👍', true);
+  });
+
+  // Agentic hooks: canvas state + schematic snapshot for the AI + PDF tools
+  function snapshotSVG() {
+    const W2 = 1100, H2 = 620;
+    let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W2} ${H2}" width="1100" height="620"><rect width="1100" height="620" fill="#080f22"/>`;
+    const C = {};
+    state.nodes.forEach((n) => {
+      const p = PARTS[n.type];
+      if (!p) return;
+      const x = Math.max(10, Math.min(n.x, W2 - 200)), y = Math.max(10, Math.min(n.y, H2 - 200));
+      C[n.id] = { x: x + 92, y: y + 95 };
+      s += `<rect x="${x}" y="${y}" width="184" height="190" rx="12" fill="#0d1527" stroke="${p.c}" stroke-width="3"/>` +
+        `<text x="${x + 12}" y="${y + 36}" fill="#e6edf7" font-size="20" font-weight="bold">${esc(p.name)}</text>` +
+        `<text x="${x + 12}" y="${y + 62}" fill="#93a4c4" font-size="15">${esc(p.sub)}</text>`;
+    });
+    state.wires.forEach((w) => {
+      const a = C[w.a.split(':')[0]], b = C[w.b.split(':')[0]];
+      if (!a || !b) return;
+      const dx = Math.max(60, Math.abs(b.x - a.x) / 2);
+      s += `<path d="M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x} ${b.y}" fill="none" stroke="${w.color}" stroke-width="5" stroke-linecap="round"/>`;
+    });
+    return s + '</svg>';
+  }
+  window.__wattounaWB = {
+    getState: () => JSON.parse(JSON.stringify(state)),
+    snapshot: snapshotSVG,
+  };
+
   window.addEventListener('resize', drawWires);
 
   /* ---------------- validate (short-circuit check) ---------------- */
