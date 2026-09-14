@@ -189,6 +189,35 @@ const bomCards: string[][] = project?.slug === 'pbx-36' || slug === 'pbx-36'
           </div>
         </div>
 
+        {slug === 'pbx-36' && (
+          <div class="card" style="margin-bottom:1.2rem" id="t3dBlock">
+            <h3 style="margin-top:0">🧊 المعاينة الميكانيكية ثلاثية الأبعاد</h3>
+            <p style="color:var(--muted)">افحص الغلاف القابل للطباعة قبل التصنيع — تدوير 360° باللمس، تقريب بالقرص.</p>
+            <div id="t3dIdle">
+              <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
+                <button class="btn btn-cyan" id="t3dOpen">معاينة الغلاف ثلاثي الأبعاد (3D Preview) 🖨️</button>
+                <select id="t3dModel" aria-label="النموذج">
+                  <option value="/downloads/pbx36-chassis.stl">الهيكل — Chassis (200×140×80مم)</option>
+                  <option value="/downloads/pbx36-front-panel.stl">الواجهة — Front Panel</option>
+                </select>
+                <small style="color:var(--muted)">يُحمَّل عند الطلب فقط (551KB، يُحفظ دون اتصال)</small>
+              </div>
+            </div>
+            <div id="t3dStage" hidden>
+              <div id="t3dCanvas"></div>
+              <div id="t3dSpin" class="t3d-spin" hidden><span class="t3d-ring"></span> جارٍ تحليل STL… <span id="t3dPct" dir="ltr">0%</span></div>
+              <div id="t3dErr" class="t3d-err" hidden></div>
+              <div class="t3d-bar">
+                <button class="btn btn-ghost t3d-mini" id="t3dSolid">🧱 Solid (مكتمل)</button>
+                <button class="btn btn-ghost t3d-mini" id="t3dWire">🕸️ Wireframe (شبكي)</button>
+                <button class="btn btn-ghost t3d-mini" id="t3dAmber">🟠 كهرماني</button>
+                <button class="btn btn-ghost t3d-mini" id="t3dGrey">⚪ رمادي صناعي</button>
+                <span id="t3dMeta" class="pill cyan" dir="ltr"></span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div class="card" style="margin-bottom:1.2rem">
           <h3 style="margin-top:0">📝 الوصف الهندسي</h3>
           <div style="color:var(--muted)"><Fragment set:html={md(project.description || project.desc || '')} /></div>
@@ -248,5 +277,100 @@ const bomCards: string[][] = project?.slug === 'pbx-36' || slug === 'pbx-36'
       });
     });
   });
+
+  /* ---- lazy 3D viewer ( loads three.js only on click ) ---- */
+  var openBtn = document.getElementById('t3dOpen');
+  if (openBtn) {
+    openBtn.addEventListener('click', async function () {
+      var stage = document.getElementById('t3dStage');
+      var spin = document.getElementById('t3dSpin');
+      var errBox = document.getElementById('t3dErr');
+      var meta = document.getElementById('t3dMeta');
+      var pct = document.getElementById('t3dPct');
+      var modelSel = document.getElementById('t3dModel');
+      var canvasBox = document.getElementById('t3dCanvas');
+      stage.hidden = false;
+      openBtn.disabled = true;
+      errBox.hidden = true;
+      function fail(msg) {
+        spin.hidden = true;
+        errBox.hidden = false;
+        errBox.textContent = msg;
+        openBtn.disabled = false;
+      }
+      try {
+        // concatenated at runtime so the bundler leaves this browser-native import alone
+        var engineUrl = '/vendor/' + 'three-viewer.js';
+        var mod = await Function('u', 'return import(u)')(engineUrl);
+        if (!mod.webglAvailable()) {
+          fail('⚠️ جهازك لا يدعم WebGL — حمّل ملف STL مباشرة من قسم ⬇️ ملفات التصنيع بدلًا من ذلك.');
+          return;
+        }
+        spin.hidden = false;
+        var viewer = mod.mountViewer(canvasBox);
+        window.__t3d = viewer;
+        var load = async function () {
+          errBox.hidden = true;
+          spin.hidden = false;
+          try {
+            var info = await viewer.loadUrl(modelSel.value, function (p) {
+              pct.textContent = Math.round(p * 100) + '%';
+            });
+            spin.hidden = true;
+            meta.textContent = info.facets + ' facets • ' +
+              Math.round(info.bbox.x) + '×' + Math.round(info.bbox.y) + '×' + Math.round(info.bbox.z) + 'mm';
+          } catch (e) {
+            fail('❌ تعذر تحميل النموذج: ' + String((e && e.message) || e));
+          }
+        };
+        modelSel.addEventListener('change', load);
+        document.getElementById('t3dSolid').addEventListener('click', function () { viewer.setWireframe(false); });
+        document.getElementById('t3dWire').addEventListener('click', function () { viewer.setWireframe(true); });
+        document.getElementById('t3dAmber').addEventListener('click', function () { viewer.setColor('#f59e0b'); });
+        document.getElementById('t3dGrey').addEventListener('click', function () { viewer.setColor('#9aa7b8'); });
+        await load();
+        stage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch (e) {
+        fail('❌ تعذر تشغيل العارض ثلاثي الأبعاد على هذا الجهاز.');
+      }
+    });
+  }
 })();
 </script>
+
+<style>
+  #t3dCanvas {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    min-height: 300px;
+    background: radial-gradient(600px 300px at 50% 20%, rgba(56,189,248,.08), transparent 70%), var(--canvas);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    touch-action: none;
+  }
+  #t3dCanvas canvas { display: block; width: 100% !important; height: 100% !important; }
+  .t3d-spin {
+    display: flex; align-items: center; gap: .6rem; justify-content: center;
+    padding: .8rem; color: var(--muted); font-size: .9rem;
+  }
+  .t3d-spin[hidden] { display: none; }
+  .t3d-ring {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 3px solid var(--border); border-top-color: var(--amber);
+    animation: t3d-spin 0.8s linear infinite;
+  }
+  @keyframes t3d-spin { to { transform: rotate(360deg); } }
+  .t3d-err {
+    background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.4); color: #fca5a5;
+    border-radius: 12px; padding: .7rem 1rem; margin: .6rem 0; font-size: .9rem;
+  }
+  .t3d-err[hidden] { display: none; }
+  .t3d-bar { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-top: .7rem; }
+  .t3d-mini { padding: .45rem .85rem; font-size: .8rem; }
+  #t3dModel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: .55rem .7rem; color: var(--text); font-family: inherit; font-size: .88rem;
+  }
+</style>
