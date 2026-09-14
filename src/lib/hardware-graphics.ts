@@ -6,7 +6,8 @@
 
 export type PartType =
   | 'battery' | 'mppt' | 'latch' | 'wago'
-  | 'meter' | 'button' | 'buck' | 'usb';
+  | 'meter' | 'button' | 'buck' | 'usb'
+  | 'esp32' | 'oled' | 'sensor';
 
 type Renderer = (u: string | number) => string;
 
@@ -159,6 +160,50 @@ const R: Record<string, Renderer> = {
     <circle cx="130" cy="48" r="2" fill="#fbbf24"/><circle cx="138" cy="48" r="2" fill="#fbbf24"/>
     <line x1="20" y1="66" x2="60" y2="66" stroke="#c4b5fd" stroke-width="1" opacity=".7"/>
     <text x="20" y="78" font-size="8" fill="#ddd6fe" font-family="monospace">IP2368 • 100W PD</text>`;
+  },
+  esp32(u) {
+    let pins = '';
+    for (let i = 0; i < 8; i++) {
+      pins += `<rect x="10" y="${18 + i * 9}" width="8" height="5" rx="1" fill="url(#metal${u})"/>`;
+      pins += `<rect x="150" y="${18 + i * 9}" width="8" height="5" rx="1" fill="url(#metal${u})"/>`;
+    }
+    return `${defs(u)}
+    <rect x="20" y="12" width="128" height="80" rx="4" fill="#0f172a" stroke="#1e293b" stroke-width="2"/>
+    ${pins}
+    <rect x="52" y="22" width="64" height="30" rx="3" fill="url(#metal${u})" stroke="#475569" stroke-width="1.5"/>
+    <rect x="52" y="22" width="64" height="30" rx="3" fill="none" stroke="#f8fafc" stroke-width=".8" opacity=".5"/>
+    <text x="58" y="35" font-size="7" fill="#0f172a" font-family="monospace" font-weight="bold">ESP-WROOM-32</text>
+    <text x="58" y="45" font-size="6" fill="#334155" font-family="monospace">ESPRESSIF</text>
+    <polygon points="122,52 138,52 138,72 122,72" fill="#0f172a" stroke="#38bdf8" stroke-width="1"/>
+    <line x1="124" y1="56" x2="136" y2="56" stroke="#38bdf8" stroke-width="1.2"/>
+    <line x1="124" y1="61" x2="136" y2="61" stroke="#38bdf8" stroke-width="1.2"/>
+    <line x1="124" y1="66" x2="132" y2="66" stroke="#38bdf8" stroke-width="1.2"/>
+    <rect x="66" y="60" width="36" height="14" rx="7" fill="url(#metal${u})" stroke="#475569" stroke-width="1.5"/>
+    <rect x="72" y="64" width="24" height="6" rx="3" fill="#1e293b"/>
+    <text x="24" y="98" font-size="7" fill="#7dd3fc" font-family="monospace">D21/SDA D22/SCL • 3V3</text>
+    <circle cx="146" cy="88" r="4" fill="#22c55e"><animate attributeName="opacity" values="1;.4;1" dur="1.6s" repeatCount="indefinite"/></circle>`;
+  },
+  oled(u) {
+    return `${defs(u)}
+    <rect x="34" y="10" width="100" height="84" rx="5" fill="#1e293b" stroke="#000" stroke-width="2"/>
+    <circle cx="42" cy="18" r="2.4" fill="url(#metal${u})"/><circle cx="126" cy="18" r="2.4" fill="url(#metal${u})"/>
+    <circle cx="42" cy="86" r="2.4" fill="url(#metal${u})"/><circle cx="126" cy="86" r="2.4" fill="url(#metal${u})"/>
+    <rect x="44" y="26" width="80" height="44" rx="3" fill="#000" stroke="#334155"/>
+    <text class="wb-volt" x="84" y="47" font-size="13" text-anchor="middle" fill="#22d3ee" font-family="monospace" font-weight="bold">23.5°C</text>
+    <text class="wb-volt" x="84" y="47" font-size="13" text-anchor="middle" fill="#22d3ee" font-family="monospace" opacity=".35">23.5°C</text>
+    <text x="84" y="63" font-size="6.5" text-anchor="middle" fill="#0e7490" font-family="monospace">SSD1306 128x64</text>
+    <text x="48" y="82" font-size="6" fill="#94a3b8" font-family="monospace">GND VCC SCL SDA</text>`;
+  },
+  sensor(u) {
+    let holes = '';
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 6; c++) holes += `<circle cx="${52 + c * 9}" cy="${30 + r * 9}" r="1.8" fill="#0f172a"/>`;
+    return `${defs(u)}
+    <rect x="40" y="16" width="88" height="60" rx="5" fill="#e2e8f0" opacity=".92" stroke="#94a3b8" stroke-width="2"/>
+    ${holes}
+    <rect x="48" y="78" width="72" height="12" rx="2" fill="#166534"/>
+    <circle cx="56" cy="84" r="2" fill="#052e16"/><circle cx="66" cy="84" r="2" fill="#052e16"/>
+    <circle cx="104" cy="84" r="2" fill="#052e16"/><circle cx="114" cy="84" r="2" fill="#052e16"/>
+    <text x="48" y="100" font-size="7" fill="#475569" font-family="monospace">BME280 • I2C 0x76</text>`;
   },
 };
 

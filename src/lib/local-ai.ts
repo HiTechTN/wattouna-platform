@@ -223,6 +223,8 @@ function ruleAnswer(q: string): string {
   if (has('start', 'تخدم', 'مشكلة', 'panne', 'عطل')) return '⚠️ تفقد بالترتيب: جهد فوق 31V؟ فيوز 15A؟ زر STOP (NC) مسكر؟ Gate يهبط كي تنزل START؟';
   if (has('سلامة', 'fuse', 'فيوز', 'safety')) return '🛡️ فيوز 15A أول عنصر دائمًا، AWG 14 للقدرة، WAGO 221 بلا لحام، قِس مرتين وشغّل مرة.';
   if (has('سلام', 'اهلا', 'bonjour', 'hello', 'عسلامة')) return '👋 أهلًا! أنا مساعد واطنا — اسألني بالصوت ولا الكتابة، ونجم نحطلك قطع في المختبر مباشرة.';
+  if (has('thermometer', 'thermomètre', 'حرارة', 'temperature', 'bme280', 'dht22', 'esp32')) return '🌡️ ترمومتر ذكي: ESP32 + BME280 + OLED على I2C (SDA=GPIO21، SCL=GPIO22، 3.3V فقط!). قولي «ابنِ ترمومتر» نركب القطع ونوصّلها، و«الكود» للبرنامج.';
+  if (has('code', 'كود', 'arduino', 'micropython', 'firmware', 'برنامج', 'سكيتش')) return '💻 قولي «ابنِ ترمومتر» أولًا ثم «الكود» — نعطيك سكيتش Arduino وMicroPython جاهزين (BME280 على 0x76 + SSD1306 على 0x3C).';
   return '🤔 جرّب: «أضف بطارية» / «add MPPT» / «حط فولتميتر» — أو اسألني على 0.00mA، الشمسي، البطاريات، والأعطاب.';
 }
 
@@ -235,15 +237,19 @@ export interface CanvasNode { id: string; type: string; x?: number; y?: number }
 export interface CanvasWire { a: string; b: string; color: string }
 export interface CanvasState { nodes: CanvasNode[]; wires: CanvasWire[] }
 
-const NETS: Record<string, Record<string, string>> = {
-  battery: { plus: 'PWR', gnd: 'GND' },
-  mppt: { 'sol+': 'PWR', 'sol-': 'GND', 'out+': 'PWR', 'out-': 'GND' },
-  latch: { in: 'PWR', gate: 'SIG', out: 'PWR', gnd: 'GND' },
-  usb: { vin: 'PWR', gnd: 'GND', usbc: 'SIG' },
-  buck: { vin: 'PWR', gnd: 'GND', vout: 'PWR' },
-  wago: { p1: 'BUS', p2: 'BUS', p3: 'BUS' },
-  meter: { 'v+': 'PWR', 'v-': 'GND' },
-  button: { com: 'SIG', no: 'SIG', nc: 'SIG' },
+const NETS: Record<string, Record<string, { net: string; vmax?: number; src?: number }>> = {
+  battery: { plus: { net: 'PWR', src: 36 }, gnd: { net: 'GND' } },
+  mppt: { 'sol+': { net: 'PWR', src: 24 }, 'sol-': { net: 'GND' }, 'out+': { net: 'PWR', src: 42 }, 'out-': { net: 'GND' } },
+  latch: { in: { net: 'PWR', src: 36 }, gate: { net: 'SIG' }, out: { net: 'PWR', src: 36 }, gnd: { net: 'GND' } },
+  usb: { vin: { net: 'PWR', src: 36 }, gnd: { net: 'GND' }, usbc: { net: 'SIG' } },
+  buck: { vin: { net: 'PWR', src: 36 }, gnd: { net: 'GND' }, vout: { net: 'PWR', src: 12 } },
+  wago: { p1: { net: 'BUS' }, p2: { net: 'BUS' }, p3: { net: 'BUS' } },
+  meter: { 'v+': { net: 'PWR', src: 36 }, 'v-': { net: 'GND' } },
+  button: { com: { net: 'SIG' }, no: { net: 'SIG' }, nc: { net: 'SIG' } },
+  esp32: { vin: { net: 'PWR', src: 5, vmax: 12 }, v3: { net: 'PWR', src: 3.3, vmax: 3.6 }, gnd: { net: 'GND' },
+           sda: { net: 'SIG', vmax: 3.6 }, scl: { net: 'SIG', vmax: 3.6 }, gpio: { net: 'SIG', vmax: 3.6 } },
+  oled: { vcc: { net: 'PWR', vmax: 5 }, gnd: { net: 'GND' }, sda: { net: 'SIG', vmax: 5 }, scl: { net: 'SIG', vmax: 5 } },
+  sensor: { vcc: { net: 'PWR', vmax: 3.6 }, gnd: { net: 'GND' }, sda: { net: 'SIG', vmax: 3.6 }, scl: { net: 'SIG', vmax: 3.6 } },
 };
 
 const TLABEL: Record<string, Record<string, string>> = {
@@ -255,6 +261,9 @@ const TLABEL: Record<string, Record<string, string>> = {
   wago: { p1: 'WAGO-1', p2: 'WAGO-2', p3: 'WAGO-3' },
   meter: { 'v+': 'Meter+', 'v-': 'Meter-' },
   button: { com: 'BTN-COM', no: 'BTN-NO', nc: 'BTN-NC' },
+  esp32: { vin: 'ESP-VIN', v3: 'ESP-3V3', gnd: 'ESP-GND', sda: 'ESP-SDA21', scl: 'ESP-SCL22', gpio: 'ESP-GPIO' },
+  oled: { vcc: 'OLED-VCC', gnd: 'OLED-GND', sda: 'OLED-SDA', scl: 'OLED-SCL' },
+  sensor: { vcc: 'SEN-VCC', gnd: 'SEN-GND', sda: 'SEN-SDA', scl: 'SEN-SCL' },
 };
 
 function unionsOf(state: CanvasState) {
@@ -265,10 +274,14 @@ function unionsOf(state: CanvasState) {
   };
   const uni = (a: string, b: string) => { parent[find(a)] = find(b); };
   const netOf: Record<string, string> = {};
+  const vmaxOf: Record<string, number> = {};
+  const srcOf: Record<string, number> = {};
   for (const nd of state.nodes || []) {
-    for (const [tid, net] of Object.entries(NETS[nd.type] || {})) {
+    for (const [tid, t] of Object.entries(NETS[nd.type] || {})) {
       const k = `${nd.id}:${tid}`;
-      netOf[k] = net; parent[k] = k;
+      netOf[k] = t.net; parent[k] = k;
+      if (t.vmax !== undefined) vmaxOf[k] = t.vmax;
+      if (t.src !== undefined) srcOf[k] = t.src;
     }
   }
   for (const nd of state.nodes || []) {
@@ -278,7 +291,7 @@ function unionsOf(state: CanvasState) {
   for (const w of state.wires || []) {
     if (netOf[w.a] && netOf[w.b]) uni(w.a, w.b);
   }
-  return { find, netOf };
+  return { find, netOf, vmaxOf, srcOf };
 }
 
 export interface Finding {
@@ -293,7 +306,7 @@ export function analyzeCircuit(state: CanvasState): { ok: boolean; findings: Fin
   if (!nodes.length) {
     return { ok: false, findings: [{ level: 'info', ar: 'اللوحة فارغة — أضف بطارية أولًا 🔋', voice: 'Empty canvas. Add a battery first.' }], summary: 'empty canvas' };
   }
-  const { find, netOf } = unionsOf(state);
+  const { find, netOf, vmaxOf, srcOf } = unionsOf(state);
   const label = (k: string) => {
     const [nid, tid] = k.split(':');
     const nd = nodes.find((n) => n.id === nid);
@@ -310,6 +323,47 @@ export function analyzeCircuit(state: CanvasState): { ok: boolean; findings: Fin
         level: 'danger',
         ar: `⚡ ماس كهربائي! ${label(p[0])} متصل مباشرة بـ ${label(g[0])} — افصل السلك قبل التشغيل.`,
         voice: `Warning: Short circuit detected between ${label(p[0])} and ${label(g[0])}.`,
+      });
+    }
+  }
+  // 1b. logic-level violations: high volts into 3V3-rated pins
+  for (const members of Object.values(sets)) {
+    const v = Math.max(0, ...members.filter((m) => srcOf[m] !== undefined).map((m) => srcOf[m]));
+    if (v <= 5) continue;
+    const victims = members.filter((m) => vmaxOf[m] !== undefined && vmaxOf[m] < v);
+    for (const vic of victims.slice(0, 2)) {
+      findings.push({
+        level: 'danger',
+        ar: `🔥 خطر جهد: ${label(vic)} (أقصى ${vmaxOf[vic]}V) مربوط على ${v}V — ستحرق الشريحة! استعمل Buck أو مقسم جهد.`,
+        voice: `Warning: ${v} volts into ${label(vic)}, rated ${vmaxOf[vic]} volts maximum.`,
+      });
+    }
+  }
+  // 1c. I2C protocol: SDA↔SDA, SCL↔SCL, never crossed
+  const isSda = (k: string) => k.split(':')[1] === 'sda';
+  const isScl = (k: string) => k.split(':')[1] === 'scl';
+  for (const members of Object.values(sets)) {
+    const hasSda = members.some(isSda), hasScl = members.some(isScl);
+    if (hasSda && hasScl) {
+      findings.push({
+        level: 'danger',
+        ar: '🔀 SDA وSCL متقاطعان في نفس الشبكة! SDA←SDA وSCL←SCL فقط.',
+        voice: 'Warning: SDA and SCL lines are crossed.',
+      });
+    }
+  }
+  const hasEsp = nodes.some((n) => n.type === 'esp32');
+  const hasI2cDev = nodes.some((n) => n.type === 'oled' || n.type === 'sensor');
+  if (hasEsp && hasI2cDev) {
+    const esp = nodes.find((n) => n.type === 'esp32')!;
+    const devs = nodes.filter((n) => n.type === 'oled' || n.type === 'sensor');
+    const sdaOk = devs.some((d) => find(`${esp.id}:sda`) === find(`${d.id}:sda`));
+    const sclOk = devs.some((d) => find(`${esp.id}:scl`) === find(`${d.id}:scl`));
+    if (!sdaOk || !sclOk) {
+      findings.push({
+        level: 'warn',
+        ar: '🔗 I2C ناقص: اربط SDA←SDA وSCL←SCL بين ESP32 والحساس/الشاشة (نفس الشبكة، بلا تقاطع).',
+        voice: 'Warning: incomplete I2C bus between ESP32 and sensor or display.',
       });
     }
   }
@@ -410,6 +464,85 @@ export function autoWire(nodes: CanvasNode[]): { wires: CanvasWire[]; notesAr: s
     add(`${btn.id}:com`, `${batt.id}:gnd`, GRN);
     notesAr.push('زر START في مسار البوابة');
   }
+  // ---- IoT tier: ESP32 + OLED + sensor (smart thermometer) ----
+  const esp = byType('esp32')[0];
+  const oled = byType('oled')[0];
+  const sens = byType('sensor')[0];
+  if (esp) {
+    // 5V-tolerant VIN from buck 12V? No — DevKit regulator ceiling: use USB 5V or buck via 5V step.
+    // Safe default: buck 12V → ESP VIN is regulator-rated to 12V max; prefer direct 5V if a USB rail exists.
+    const buck = byType('buck')[0];
+    if (buck) {
+      add(`${busSrc}`, `${buck.id}:vin`, ORG);
+      add(`${batt.id}:gnd`, `${buck.id}:gnd`, BLK);
+      add(`${buck.id}:vout`, `${esp.id}:vin`, RED);
+      notesAr.push('ESP32 ← Buck 12V عبر VIN (منظم اللوحة يتحمل حتى 12V)');
+    } else {
+      add(busSrc, `${esp.id}:vin`, RED);
+      notesAr.push('ESP32 ← القضيب مباشرة (تأكد أنه ≤12V!)');
+    }
+    add(`${batt.id}:gnd`, `${esp.id}:gnd`, BLK);
+    for (const dev of [oled, sens]) {
+      if (!dev) continue;
+      add(`${esp.id}:v3`, `${dev.id}:vcc`, RED);
+      add(`${batt.id}:gnd`, `${dev.id}:gnd`, BLK);
+      add(`${esp.id}:sda`, `${dev.id}:sda`, GRN);
+      add(`${esp.id}:scl`, `${dev.id}:scl`, GRN);
+    }
+    if (oled || sens) notesAr.push('I2C: SDA←SDA وSCL←SCL (3.3V فقط!) والحساس/الشاشة من 3V3');
+  }
   if (!wires.length) notesAr.push('لا أحمال — أضف Buck أو USB أو فولتميتر.');
   return { wires, notesAr };
+}
+
+/* ---------------- firmware code generation ---------------- */
+export interface Firmware { arduino: string; micropython: string }
+
+export function genFirmware(kind: string): Firmware {
+  const arduino = `// Wattouna Smart Thermometer - ESP32 + BME280 + SSD1306 (Arduino IDE)
+// Boards: ESP32 Dev Module | Libs: Adafruit BME280, Adafruit SSD1306, Adafruit GFX
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#define SDA_PIN 21
+#define SCL_PIN 22
+#define SEALEVELPRESSURE_HPA (1013.25)
+Adafruit_BME280 bme;
+Adafruit_SSD1306 display(128, 64, &Wire, -1);
+void setup() {
+  Serial.begin(115200);
+  Wire.begin(SDA_PIN, SCL_PIN);
+  if (!bme.begin(0x76)) { Serial.println("BME280 missing!"); while (1); }
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { Serial.println("OLED missing!"); while (1); }
+  display.clearDisplay();
+}
+void loop() {
+  float t = bme.readTemperature();
+  float h = bme.readHumidity();
+  display.clearDisplay();
+  display.setTextSize(2); display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0); display.print(t, 1); display.println(" C");
+  display.setCursor(0, 28); display.print(h, 0); display.println(" %RH");
+  display.display();
+  Serial.printf("T=%.1fC H=%.0f%%\\n", t, h);
+  delay(2000); // note: 0.00mA latch cuts deep-sleep rail below 31V
+}`;
+  const micropython = `# Wattouna Smart Thermometer - MicroPython (ESP32 + BME280 + SSD1306)
+from machine import Pin, I2C
+import ssd1306, bme280, time
+i2c = I2C(0, scl=Pin(22), sda=Pin(21), freq=100000)
+sens = bme280.BME280(i2c=i2c, address=0x76)
+oled = ssd1306.SSD1306_I2C(128, 64, i2c, addr=0x3C)
+while True:
+    t, h, p = sens.values  # needs bme280.py driver on device
+    oled.fill(0)
+    oled.text('T: %.1fC' % t, 0, 0)
+    oled.text('H: %.0f%%' % h, 0, 20)
+    oled.show()
+    print('T=%.1f H=%.0f' % (t, h))
+    time.sleep(2)`;
+  void kind;
+  return { arduino, micropython };
 }

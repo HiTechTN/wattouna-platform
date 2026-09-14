@@ -8,13 +8,14 @@
    - cache-first: same-origin pages/assets/vendor/downloads (offline workshop);
    - network-first: Supabase API + /projects/ dynamic pages (fresh wins);
    - API/auth traffic is never cached. */
-const VERSION = 'wattouna-v3';
+const VERSION = 'wattouna-v4';
 const SHELL = [
   '/',
   '/index.html',
   '/offline.html',
   '/workbench/',
   '/community/',
+  '/components/',
   '/profile/',
   '/manifest.json',
   '/favicon.svg',

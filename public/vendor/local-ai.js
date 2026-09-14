@@ -215,17 +215,29 @@ function ruleAnswer(q) {
   if (has("start", "\u062A\u062E\u062F\u0645", "\u0645\u0634\u0643\u0644\u0629", "panne", "\u0639\u0637\u0644")) return "\u26A0\uFE0F \u062A\u0641\u0642\u062F \u0628\u0627\u0644\u062A\u0631\u062A\u064A\u0628: \u062C\u0647\u062F \u0641\u0648\u0642 31V\u061F \u0641\u064A\u0648\u0632 15A\u061F \u0632\u0631 STOP (NC) \u0645\u0633\u0643\u0631\u061F Gate \u064A\u0647\u0628\u0637 \u0643\u064A \u062A\u0646\u0632\u0644 START\u061F";
   if (has("\u0633\u0644\u0627\u0645\u0629", "fuse", "\u0641\u064A\u0648\u0632", "safety")) return "\u{1F6E1}\uFE0F \u0641\u064A\u0648\u0632 15A \u0623\u0648\u0644 \u0639\u0646\u0635\u0631 \u062F\u0627\u0626\u0645\u064B\u0627\u060C AWG 14 \u0644\u0644\u0642\u062F\u0631\u0629\u060C WAGO 221 \u0628\u0644\u0627 \u0644\u062D\u0627\u0645\u060C \u0642\u0650\u0633 \u0645\u0631\u062A\u064A\u0646 \u0648\u0634\u063A\u0651\u0644 \u0645\u0631\u0629.";
   if (has("\u0633\u0644\u0627\u0645", "\u0627\u0647\u0644\u0627", "bonjour", "hello", "\u0639\u0633\u0644\u0627\u0645\u0629")) return "\u{1F44B} \u0623\u0647\u0644\u064B\u0627! \u0623\u0646\u0627 \u0645\u0633\u0627\u0639\u062F \u0648\u0627\u0637\u0646\u0627 \u2014 \u0627\u0633\u0623\u0644\u0646\u064A \u0628\u0627\u0644\u0635\u0648\u062A \u0648\u0644\u0627 \u0627\u0644\u0643\u062A\u0627\u0628\u0629\u060C \u0648\u0646\u062C\u0645 \u0646\u062D\u0637\u0644\u0643 \u0642\u0637\u0639 \u0641\u064A \u0627\u0644\u0645\u062E\u062A\u0628\u0631 \u0645\u0628\u0627\u0634\u0631\u0629.";
+  if (has("thermometer", "thermom\xE8tre", "\u062D\u0631\u0627\u0631\u0629", "temperature", "bme280", "dht22", "esp32")) return "\u{1F321}\uFE0F \u062A\u0631\u0645\u0648\u0645\u062A\u0631 \u0630\u0643\u064A: ESP32 + BME280 + OLED \u0639\u0644\u0649 I2C (SDA=GPIO21\u060C SCL=GPIO22\u060C 3.3V \u0641\u0642\u0637!). \u0642\u0648\u0644\u064A \xAB\u0627\u0628\u0646\u0650 \u062A\u0631\u0645\u0648\u0645\u062A\u0631\xBB \u0646\u0631\u0643\u0628 \u0627\u0644\u0642\u0637\u0639 \u0648\u0646\u0648\u0635\u0651\u0644\u0647\u0627\u060C \u0648\xAB\u0627\u0644\u0643\u0648\u062F\xBB \u0644\u0644\u0628\u0631\u0646\u0627\u0645\u062C.";
+  if (has("code", "\u0643\u0648\u062F", "arduino", "micropython", "firmware", "\u0628\u0631\u0646\u0627\u0645\u062C", "\u0633\u0643\u064A\u062A\u0634")) return "\u{1F4BB} \u0642\u0648\u0644\u064A \xAB\u0627\u0628\u0646\u0650 \u062A\u0631\u0645\u0648\u0645\u062A\u0631\xBB \u0623\u0648\u0644\u064B\u0627 \u062B\u0645 \xAB\u0627\u0644\u0643\u0648\u062F\xBB \u2014 \u0646\u0639\u0637\u064A\u0643 \u0633\u0643\u064A\u062A\u0634 Arduino \u0648MicroPython \u062C\u0627\u0647\u0632\u064A\u0646 (BME280 \u0639\u0644\u0649 0x76 + SSD1306 \u0639\u0644\u0649 0x3C).";
   return "\u{1F914} \u062C\u0631\u0651\u0628: \xAB\u0623\u0636\u0641 \u0628\u0637\u0627\u0631\u064A\u0629\xBB / \xABadd MPPT\xBB / \xAB\u062D\u0637 \u0641\u0648\u0644\u062A\u0645\u064A\u062A\u0631\xBB \u2014 \u0623\u0648 \u0627\u0633\u0623\u0644\u0646\u064A \u0639\u0644\u0649 0.00mA\u060C \u0627\u0644\u0634\u0645\u0633\u064A\u060C \u0627\u0644\u0628\u0637\u0627\u0631\u064A\u0627\u062A\u060C \u0648\u0627\u0644\u0623\u0639\u0637\u0627\u0628.";
 }
 const NETS = {
-  battery: { plus: "PWR", gnd: "GND" },
-  mppt: { "sol+": "PWR", "sol-": "GND", "out+": "PWR", "out-": "GND" },
-  latch: { in: "PWR", gate: "SIG", out: "PWR", gnd: "GND" },
-  usb: { vin: "PWR", gnd: "GND", usbc: "SIG" },
-  buck: { vin: "PWR", gnd: "GND", vout: "PWR" },
-  wago: { p1: "BUS", p2: "BUS", p3: "BUS" },
-  meter: { "v+": "PWR", "v-": "GND" },
-  button: { com: "SIG", no: "SIG", nc: "SIG" }
+  battery: { plus: { net: "PWR", src: 36 }, gnd: { net: "GND" } },
+  mppt: { "sol+": { net: "PWR", src: 24 }, "sol-": { net: "GND" }, "out+": { net: "PWR", src: 42 }, "out-": { net: "GND" } },
+  latch: { in: { net: "PWR", src: 36 }, gate: { net: "SIG" }, out: { net: "PWR", src: 36 }, gnd: { net: "GND" } },
+  usb: { vin: { net: "PWR", src: 36 }, gnd: { net: "GND" }, usbc: { net: "SIG" } },
+  buck: { vin: { net: "PWR", src: 36 }, gnd: { net: "GND" }, vout: { net: "PWR", src: 12 } },
+  wago: { p1: { net: "BUS" }, p2: { net: "BUS" }, p3: { net: "BUS" } },
+  meter: { "v+": { net: "PWR", src: 36 }, "v-": { net: "GND" } },
+  button: { com: { net: "SIG" }, no: { net: "SIG" }, nc: { net: "SIG" } },
+  esp32: {
+    vin: { net: "PWR", src: 5, vmax: 12 },
+    v3: { net: "PWR", src: 3.3, vmax: 3.6 },
+    gnd: { net: "GND" },
+    sda: { net: "SIG", vmax: 3.6 },
+    scl: { net: "SIG", vmax: 3.6 },
+    gpio: { net: "SIG", vmax: 3.6 }
+  },
+  oled: { vcc: { net: "PWR", vmax: 5 }, gnd: { net: "GND" }, sda: { net: "SIG", vmax: 5 }, scl: { net: "SIG", vmax: 5 } },
+  sensor: { vcc: { net: "PWR", vmax: 3.6 }, gnd: { net: "GND" }, sda: { net: "SIG", vmax: 3.6 }, scl: { net: "SIG", vmax: 3.6 } }
 };
 const TLABEL = {
   battery: { plus: "Battery+36V", gnd: "Battery-GND" },
@@ -235,7 +247,10 @@ const TLABEL = {
   buck: { vin: "Buck-Vin", gnd: "Buck-GND", vout: "Buck-12V" },
   wago: { p1: "WAGO-1", p2: "WAGO-2", p3: "WAGO-3" },
   meter: { "v+": "Meter+", "v-": "Meter-" },
-  button: { com: "BTN-COM", no: "BTN-NO", nc: "BTN-NC" }
+  button: { com: "BTN-COM", no: "BTN-NO", nc: "BTN-NC" },
+  esp32: { vin: "ESP-VIN", v3: "ESP-3V3", gnd: "ESP-GND", sda: "ESP-SDA21", scl: "ESP-SCL22", gpio: "ESP-GPIO" },
+  oled: { vcc: "OLED-VCC", gnd: "OLED-GND", sda: "OLED-SDA", scl: "OLED-SCL" },
+  sensor: { vcc: "SEN-VCC", gnd: "SEN-GND", sda: "SEN-SDA", scl: "SEN-SCL" }
 };
 function unionsOf(state) {
   const parent = {};
@@ -247,11 +262,15 @@ function unionsOf(state) {
     parent[find(a)] = find(b);
   };
   const netOf = {};
+  const vmaxOf = {};
+  const srcOf = {};
   for (const nd of state.nodes || []) {
-    for (const [tid, net] of Object.entries(NETS[nd.type] || {})) {
+    for (const [tid, t] of Object.entries(NETS[nd.type] || {})) {
       const k = `${nd.id}:${tid}`;
-      netOf[k] = net;
+      netOf[k] = t.net;
       parent[k] = k;
+      if (t.vmax !== void 0) vmaxOf[k] = t.vmax;
+      if (t.src !== void 0) srcOf[k] = t.src;
     }
   }
   for (const nd of state.nodes || []) {
@@ -261,7 +280,7 @@ function unionsOf(state) {
   for (const w of state.wires || []) {
     if (netOf[w.a] && netOf[w.b]) uni(w.a, w.b);
   }
-  return { find, netOf };
+  return { find, netOf, vmaxOf, srcOf };
 }
 function analyzeCircuit(state) {
   const findings = [];
@@ -269,7 +288,7 @@ function analyzeCircuit(state) {
   if (!nodes.length) {
     return { ok: false, findings: [{ level: "info", ar: "\u0627\u0644\u0644\u0648\u062D\u0629 \u0641\u0627\u0631\u063A\u0629 \u2014 \u0623\u0636\u0641 \u0628\u0637\u0627\u0631\u064A\u0629 \u0623\u0648\u0644\u064B\u0627 \u{1F50B}", voice: "Empty canvas. Add a battery first." }], summary: "empty canvas" };
   }
-  const { find, netOf } = unionsOf(state);
+  const { find, netOf, vmaxOf, srcOf } = unionsOf(state);
   const label = (k) => {
     const [nid, tid] = k.split(":");
     const nd = nodes.find((n) => n.id === nid);
@@ -285,6 +304,45 @@ function analyzeCircuit(state) {
         level: "danger",
         ar: `\u26A1 \u0645\u0627\u0633 \u0643\u0647\u0631\u0628\u0627\u0626\u064A! ${label(p[0])} \u0645\u062A\u0635\u0644 \u0645\u0628\u0627\u0634\u0631\u0629 \u0628\u0640 ${label(g[0])} \u2014 \u0627\u0641\u0635\u0644 \u0627\u0644\u0633\u0644\u0643 \u0642\u0628\u0644 \u0627\u0644\u062A\u0634\u063A\u064A\u0644.`,
         voice: `Warning: Short circuit detected between ${label(p[0])} and ${label(g[0])}.`
+      });
+    }
+  }
+  for (const members of Object.values(sets)) {
+    const v = Math.max(0, ...members.filter((m) => srcOf[m] !== void 0).map((m) => srcOf[m]));
+    if (v <= 5) continue;
+    const victims = members.filter((m) => vmaxOf[m] !== void 0 && vmaxOf[m] < v);
+    for (const vic of victims.slice(0, 2)) {
+      findings.push({
+        level: "danger",
+        ar: `\u{1F525} \u062E\u0637\u0631 \u062C\u0647\u062F: ${label(vic)} (\u0623\u0642\u0635\u0649 ${vmaxOf[vic]}V) \u0645\u0631\u0628\u0648\u0637 \u0639\u0644\u0649 ${v}V \u2014 \u0633\u062A\u062D\u0631\u0642 \u0627\u0644\u0634\u0631\u064A\u062D\u0629! \u0627\u0633\u062A\u0639\u0645\u0644 Buck \u0623\u0648 \u0645\u0642\u0633\u0645 \u062C\u0647\u062F.`,
+        voice: `Warning: ${v} volts into ${label(vic)}, rated ${vmaxOf[vic]} volts maximum.`
+      });
+    }
+  }
+  const isSda = (k) => k.split(":")[1] === "sda";
+  const isScl = (k) => k.split(":")[1] === "scl";
+  for (const members of Object.values(sets)) {
+    const hasSda = members.some(isSda), hasScl = members.some(isScl);
+    if (hasSda && hasScl) {
+      findings.push({
+        level: "danger",
+        ar: "\u{1F500} SDA \u0648SCL \u0645\u062A\u0642\u0627\u0637\u0639\u0627\u0646 \u0641\u064A \u0646\u0641\u0633 \u0627\u0644\u0634\u0628\u0643\u0629! SDA\u2190SDA \u0648SCL\u2190SCL \u0641\u0642\u0637.",
+        voice: "Warning: SDA and SCL lines are crossed."
+      });
+    }
+  }
+  const hasEsp = nodes.some((n) => n.type === "esp32");
+  const hasI2cDev = nodes.some((n) => n.type === "oled" || n.type === "sensor");
+  if (hasEsp && hasI2cDev) {
+    const esp = nodes.find((n) => n.type === "esp32");
+    const devs = nodes.filter((n) => n.type === "oled" || n.type === "sensor");
+    const sdaOk = devs.some((d) => find(`${esp.id}:sda`) === find(`${d.id}:sda`));
+    const sclOk = devs.some((d) => find(`${esp.id}:scl`) === find(`${d.id}:scl`));
+    if (!sdaOk || !sclOk) {
+      findings.push({
+        level: "warn",
+        ar: "\u{1F517} I2C \u0646\u0627\u0642\u0635: \u0627\u0631\u0628\u0637 SDA\u2190SDA \u0648SCL\u2190SCL \u0628\u064A\u0646 ESP32 \u0648\u0627\u0644\u062D\u0633\u0627\u0633/\u0627\u0644\u0634\u0627\u0634\u0629 (\u0646\u0641\u0633 \u0627\u0644\u0634\u0628\u0643\u0629\u060C \u0628\u0644\u0627 \u062A\u0642\u0627\u0637\u0639).",
+        voice: "Warning: incomplete I2C bus between ESP32 and sensor or display."
       });
     }
   }
@@ -379,8 +437,80 @@ function autoWire(nodes) {
     add(`${btn.id}:com`, `${batt.id}:gnd`, GRN);
     notesAr.push("\u0632\u0631 START \u0641\u064A \u0645\u0633\u0627\u0631 \u0627\u0644\u0628\u0648\u0627\u0628\u0629");
   }
+  const esp = byType("esp32")[0];
+  const oled = byType("oled")[0];
+  const sens = byType("sensor")[0];
+  if (esp) {
+    const buck = byType("buck")[0];
+    if (buck) {
+      add(`${busSrc}`, `${buck.id}:vin`, ORG);
+      add(`${batt.id}:gnd`, `${buck.id}:gnd`, BLK);
+      add(`${buck.id}:vout`, `${esp.id}:vin`, RED);
+      notesAr.push("ESP32 \u2190 Buck 12V \u0639\u0628\u0631 VIN (\u0645\u0646\u0638\u0645 \u0627\u0644\u0644\u0648\u062D\u0629 \u064A\u062A\u062D\u0645\u0644 \u062D\u062A\u0649 12V)");
+    } else {
+      add(busSrc, `${esp.id}:vin`, RED);
+      notesAr.push("ESP32 \u2190 \u0627\u0644\u0642\u0636\u064A\u0628 \u0645\u0628\u0627\u0634\u0631\u0629 (\u062A\u0623\u0643\u062F \u0623\u0646\u0647 \u226412V!)");
+    }
+    add(`${batt.id}:gnd`, `${esp.id}:gnd`, BLK);
+    for (const dev of [oled, sens]) {
+      if (!dev) continue;
+      add(`${esp.id}:v3`, `${dev.id}:vcc`, RED);
+      add(`${batt.id}:gnd`, `${dev.id}:gnd`, BLK);
+      add(`${esp.id}:sda`, `${dev.id}:sda`, GRN);
+      add(`${esp.id}:scl`, `${dev.id}:scl`, GRN);
+    }
+    if (oled || sens) notesAr.push("I2C: SDA\u2190SDA \u0648SCL\u2190SCL (3.3V \u0641\u0642\u0637!) \u0648\u0627\u0644\u062D\u0633\u0627\u0633/\u0627\u0644\u0634\u0627\u0634\u0629 \u0645\u0646 3V3");
+  }
   if (!wires.length) notesAr.push("\u0644\u0627 \u0623\u062D\u0645\u0627\u0644 \u2014 \u0623\u0636\u0641 Buck \u0623\u0648 USB \u0623\u0648 \u0641\u0648\u0644\u062A\u0645\u064A\u062A\u0631.");
   return { wires, notesAr };
+}
+function genFirmware(kind) {
+  const arduino = `// Wattouna Smart Thermometer - ESP32 + BME280 + SSD1306 (Arduino IDE)
+// Boards: ESP32 Dev Module | Libs: Adafruit BME280, Adafruit SSD1306, Adafruit GFX
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#define SDA_PIN 21
+#define SCL_PIN 22
+#define SEALEVELPRESSURE_HPA (1013.25)
+Adafruit_BME280 bme;
+Adafruit_SSD1306 display(128, 64, &Wire, -1);
+void setup() {
+  Serial.begin(115200);
+  Wire.begin(SDA_PIN, SCL_PIN);
+  if (!bme.begin(0x76)) { Serial.println("BME280 missing!"); while (1); }
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { Serial.println("OLED missing!"); while (1); }
+  display.clearDisplay();
+}
+void loop() {
+  float t = bme.readTemperature();
+  float h = bme.readHumidity();
+  display.clearDisplay();
+  display.setTextSize(2); display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0); display.print(t, 1); display.println(" C");
+  display.setCursor(0, 28); display.print(h, 0); display.println(" %RH");
+  display.display();
+  Serial.printf("T=%.1fC H=%.0f%%\\n", t, h);
+  delay(2000); // note: 0.00mA latch cuts deep-sleep rail below 31V
+}`;
+  const micropython = `# Wattouna Smart Thermometer - MicroPython (ESP32 + BME280 + SSD1306)
+from machine import Pin, I2C
+import ssd1306, bme280, time
+i2c = I2C(0, scl=Pin(22), sda=Pin(21), freq=100000)
+sens = bme280.BME280(i2c=i2c, address=0x76)
+oled = ssd1306.SSD1306_I2C(128, 64, i2c, addr=0x3C)
+while True:
+    t, h, p = sens.values  # needs bme280.py driver on device
+    oled.fill(0)
+    oled.text('T: %.1fC' % t, 0, 0)
+    oled.text('H: %.0f%%' % h, 0, 20)
+    oled.show()
+    print('T=%.1f H=%.0f' % (t, h))
+    time.sleep(2)`;
+  void kind;
+  return { arduino, micropython };
 }
 export {
   MANIFEST_URL,
@@ -388,6 +518,7 @@ export {
   analyzeCircuit,
   autoWire,
   createBrain,
+  genFirmware,
   parseVoiceCommand,
   summarizeCanvas
 };

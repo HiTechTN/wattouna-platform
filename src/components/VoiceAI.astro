@@ -33,7 +33,7 @@
 </div>
 
 <script type="module">
-  import { createBrain, parseVoiceCommand, analyzeCircuit, autoWire, summarizeCanvas } from '/vendor/local-ai.js';
+  import { createBrain, parseVoiceCommand, analyzeCircuit, autoWire, summarizeCanvas, genFirmware } from '/vendor/local-ai.js';
 
   var PART_BOM = {
     battery: ['Battery 10S 36V', 'recycled e-scooter 336Wh'], mppt: ['LTC3780 MPPT', '18-36V to 42V 160W'],
@@ -87,6 +87,17 @@
   function isPdf(q) {
     return /pdf|مخطط|blueprint|صدّر|مخططات|export/i.test(q);
   }
+  function isThermo(q) {
+    return /thermometer|thermomètre|ترمومتر|حرارة ذكية|smart.*thermo|bme280.*oled|temperature.*sensor/i.test(q);
+  }
+  function isFirmware(q) {
+    return /code|كود|arduino|micropython|firmware|برنامج|سكيتش|firmware|الكود/i.test(q);
+  }
+  function hasTypes(state, types) {
+    var have = {};
+    (state.nodes || []).forEach(function (n) { have[n.type] = 1; });
+    return types.every(function (t) { return have[t]; });
+  }
 
   function dropParts(actions) {
     actions.forEach(function (a, i) {
@@ -101,7 +112,47 @@
     addMsg(text.replace(/</g, '&lt;'), 'user');
     var state = readCanvas();
     var summary = (state.nodes.length || state.wires.length) ? summarizeCanvas(state) : '';
-    // 1. PDF blueprint export (agentic tool)
+    // 1b. Smart thermometer build: ensure parts, then auto-wire
+    if (isThermo(text)) {
+      setStatus('أركّب الترمومتر…', 'read');
+      var need = ['battery', 'latch', 'buck', 'esp32', 'oled', 'sensor'].filter(function (t) {
+        return !(state.nodes || []).some(function (n) { return n.type === t; });
+      });
+      if (need.length) {
+        addMsg('🌡️ أضيف القطع الناقصة: ' + need.join(' + ') + ' …', 'bot');
+        need.forEach(function (t, i) {
+          setTimeout(function () {
+            window.dispatchEvent(new CustomEvent('wattouna:ai-add-part', { detail: { type: t } }));
+          }, i * 400);
+        });
+        setTimeout(function () {
+          var fresh = readCanvas();
+          var aw2 = autoWire(fresh.nodes || []);
+          window.dispatchEvent(new CustomEvent('wattouna:ai-wire-batch', { detail: { wires: aw2.wires } }));
+          addMsg('🔌 <b>auto_wire_circuit (thermometer):</b><br>• ' + aw2.notesAr.join('<br>• ') + '<br><br>قولي «الكود» للبرنامج 💻', 'bot');
+          setStatus('جاهز');
+          if (voiceOn) brain.speak('Smart thermometer wired. Ask for the code next.');
+        }, need.length * 400 + 600);
+      } else {
+        var aw0 = autoWire(state.nodes || []);
+        window.dispatchEvent(new CustomEvent('wattouna:ai-wire-batch', { detail: { wires: aw0.wires } }));
+        addMsg('🔌 التوصيل تم:<br>• ' + aw0.notesAr.join('<br>• ') + '<br><br>قولي «الكود» للبرنامج 💻', 'bot');
+        setStatus('جاهز');
+      }
+      return;
+    }
+    // 1c. Firmware code generation
+    if (isFirmware(text)) {
+      setStatus('أولّد الكود…', 'read');
+      var fw = genFirmware('thermometer');
+      addMsg('💻 <b>Arduino (ESP32 + BME280 + SSD1306):</b><pre dir="ltr" class="vai-code">' +
+        fw.arduino.replace(/</g, '&lt;') + '</pre>', 'bot');
+      addMsg('🐍 <b>MicroPython:</b><pre dir="ltr" class="vai-code">' +
+        fw.micropython.replace(/</g, '&lt;') + '</pre>', 'bot');
+      setStatus('جاهز');
+      if (voiceOn) brain.speak('Code ready. Arduino and MicroPython versions posted.');
+      return;
+    }
     if (isPdf(text)) {
       setStatus('أجهّز المخطط…', 'read');
       await exportPdf(state);
@@ -329,5 +380,12 @@
   .vai-input button {
     background: linear-gradient(135deg, #38bdf8, #0ea5e9); border: none; border-radius: 12px;
     padding: 0 .9rem; font-size: 1.1rem; cursor: pointer; color: #04121f;
+  }
+  .vai-code {
+    direction: ltr; text-align: left;
+    background: var(--ink); border: 1px solid var(--border); border-radius: 10px;
+    padding: .6rem; font-size: .72rem; line-height: 1.5;
+    max-height: 220px; overflow: auto; white-space: pre;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
   }
 </style>

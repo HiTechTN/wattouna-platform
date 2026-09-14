@@ -1,0 +1,116 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const SUPA_URL = import.meta.env.PUBLIC_SUPABASE_URL || '';
+const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
+
+// Offline fallback seed (subset mirrors Supabase; live data wins when online)
+const SEED = [
+  { slug: 'esp32-devkit-v1', name: 'ESP32 DevKit V1 (30-pin)', category: 'MCU', operating_voltage: '5V in / 3.3V logic',
+    description: 'Dual-core WiFi+BT MCU. GPIOs 3.3V ONLY. I2C: SDA=GPIO21, SCL=GPIO22.',
+    resources: { datasheet_url: 'https://documentation.espressif.com/esp32-wroom-32_datasheet_en.pdf',
+      sourcing: [{ vendor: 'Rue d’Athènes (Tunis)', price_est: '~35-55 TND' }, { vendor: 'AliExpress', price_est: '~$6-9' }] } },
+  { slug: 'oled-096-i2c', name: '0.96" OLED I2C (SSD1306)', category: 'Display', operating_voltage: '3.3-5V',
+    description: '128x64 pixels, I2C 0x3C. SDA→SDA, SCL→SCL.',
+    resources: { datasheet_url: 'https://cdn-shop.adafruit.com/datasheets/SSD1306.pdf',
+      sourcing: [{ vendor: 'AliExpress', price_est: '~$3-5' }] } },
+  { slug: 'bme280-env', name: 'BME280 Environment Sensor', category: 'Sensor', operating_voltage: '3.3V ONLY',
+    description: 'Temp + humidity + pressure over I2C. 5V kills it.',
+    resources: { datasheet_url: 'https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bme280-ds002.pdf',
+      sourcing: [{ vendor: 'AliExpress', price_est: '~$2-4' }] } },
+  { slug: 'pack-10s-liion', name: 'Recycled 10S Li-ion Pack', category: 'Power', operating_voltage: '36V / 42V full',
+    description: 'Upcycled e-scooter pack, 336Wh. Never bypass BMS or 15A fuse.',
+    resources: { datasheet_url: null, sourcing: [{ vendor: 'Moncef Bey (Tunis)', price_est: '~80-150 TND used' }] } },
+];
+---
+<BaseLayout title="موسوعة المكونات — Wattouna">
+  <div class="container block" style="padding-top:2.2rem">
+    <div class="section-head">
+      <span class="kicker">📚 موسوعة العتاد</span>
+      <h2>دليل المكونات العالمي</h2>
+      <p>كل قطعة: ورقة البيانات، الصورة، ومنين تشريها. <span id="compSrc" class="pill">…</span></p>
+    </div>
+    <div class="card" style="margin-bottom:1rem">
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+        <input id="compQ" placeholder="🔍 ابحث: ESP32، OLED، حساس…" style="flex:2;min-width:200px" />
+        <select id="compCat" style="flex:1;min-width:140px">
+          <option value="">كل الفئات</option>
+          <option>MCU</option><option>Sensor</option><option>Display</option>
+          <option>Power</option><option>Logic</option>
+        </select>
+      </div>
+    </div>
+    <div id="compGrid" class="grid-3"><div class="card"><p>⏳ جارٍ التحميل…</p></div></div>
+  </div>
+</BaseLayout>
+
+<script type="module" define:vars={{ SUPA_URL, SUPA_ANON, SEED }}>
+(function () {
+  var grid = document.getElementById('compGrid');
+  var q = document.getElementById('compQ');
+  var cat = document.getElementById('compCat');
+  var src = document.getElementById('compSrc');
+  var esc = function (s) { return String(s ?? '').replace(/</g, '&lt;'); };
+  var all = [];
+
+  var CATICON = { MCU: '📶', Sensor: '🌡️', Display: '📟', Power: '🔋', Logic: '🔗' };
+
+  function card(p) {
+    var r = p.resources || {};
+    var src2 = (r.sourcing || []).map(function (s) {
+      var link = s.url ? `<a target="_blank" rel="noopener" href="${esc(s.url)}">${esc(s.vendor)}</a>` : esc(s.vendor);
+      return `<li>${link} — <b dir="ltr">${esc(s.price_est || '')}</b></li>`;
+    }).join('');
+    return `<div class="card lift comp-card" data-name="${esc((p.name + ' ' + p.slug).toLowerCase())}" data-cat="${esc(p.category)}">
+      <div style="font-size:1.8rem">${CATICON[p.category] || '🔧'}</div>
+      <b>${esc(p.name)}</b>
+      <div><span class="pill cyan">${esc(p.category)}</span> <span class="pill" dir="ltr">${esc(p.operating_voltage)}</span></div>
+      <p style="color:var(--muted);font-size:.86rem">${esc(p.description)}</p>
+      <details><summary>📄 ورقة البيانات والتوريد</summary>
+        <div style="display:grid;gap:.4rem;margin-top:.4rem;font-size:.85rem">
+          ${r.datasheet_url ? `<a class="btn btn-ghost" style="padding:.4rem .8rem;font-size:.8rem" target="_blank" rel="noopener" href="${esc(r.datasheet_url)}">📕 Datasheet (PDF)</a>` : '<small style="color:var(--muted)">لا PDF رسمي — اسأل البائع عن المرجع.</small>'}
+          ${src2 ? `<ul style="margin:0;padding-inline-start:1.1rem">${src2}</ul>` : ''}
+          <a href="/community">🔍 شوف مشاريع تستعملها ←</a>
+        </div>
+      </details>
+    </div>`;
+  }
+
+  function render() {
+    var needle = (q.value || '').trim().toLowerCase();
+    var c = cat.value;
+    var list = all.filter(function (p) {
+      return (!c || p.category === c) &&
+        (!needle || (p.name + ' ' + p.slug + ' ' + (p.description || '')).toLowerCase().includes(needle));
+    });
+    grid.innerHTML = list.map(card).join('') || '<div class="card">لا نتائج — جرّب كلمة أخرى.</div>';
+  }
+  q.addEventListener('input', render);
+  cat.addEventListener('change', render);
+
+  all = SEED;
+  src.textContent = '💾 نسخة محلية';
+  render();
+  if (SUPA_URL && SUPA_ANON) {
+    fetch(SUPA_URL + '/rest/v1/hardware_components?select=*&order=category,name', { headers: { apikey: SUPA_ANON } })
+      .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (rows) {
+        if (rows && rows.length) {
+          all = rows;
+          src.textContent = '☁️ مباشر (' + rows.length + ' قطعة)';
+          src.className = 'pill green';
+          render();
+        }
+      })
+      .catch(function () {});
+  }
+})();
+</script>
+
+<style>
+  #compQ, #compCat {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: .6rem .8rem; color: var(--text); font-family: inherit;
+  }
+  .comp-card { display: grid; gap: .45rem; align-content: start; }
+</style>
