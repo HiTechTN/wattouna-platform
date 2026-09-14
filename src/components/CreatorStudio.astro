@@ -1,0 +1,303 @@
+---
+---
+<div class="card wb-sync">
+  <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
+    <button id="csOpen" class="btn btn-amber" style="padding:.55rem 1.1rem">🎬 وثق وانشر (Document &amp; Publish)</button>
+    <span style="font-size:.85rem;color:var(--muted)">مدونة • فيديو تعليمي • YouTube — من المتصفح مباشرة</span>
+  </div>
+</div>
+
+<div id="csModal" class="ds-modal" hidden>
+  <div class="card ds-card" role="dialog" aria-label="Document and publish" style="width:min(620px,94vw)">
+    <button class="auth-x" data-close aria-label="إغلاق">✕</button>
+    <h3 style="margin-top:0">🎬 استوديو التوثيق والنشر</h3>
+    <div class="tabs" style="margin-bottom:.6rem">
+      <button class="tab active" data-cs="blog">📝 المدونة</button>
+      <button class="tab" data-cs="video">🎥 الفيديو</button>
+      <button class="tab" data-cs="yt">▶️ YouTube</button>
+      <button class="tab" data-cs="keys">🔑 المفاتيح</button>
+    </div>
+
+    <div data-pane="blog">
+      <label style="display:grid;gap:.3rem;font-size:.85rem">عنوان المقال<input id="csTitle" /></label>
+      <button class="btn btn-amber ds-mini" id="csBlogGo" style="margin-top:.6rem">📝 انشر في مدونة HiTechLab (#Wattouna)</button>
+      <div id="csBlogLog" class="ds-log" dir="ltr"></div>
+    </div>
+
+    <div data-pane="video" hidden>
+      <p style="color:var(--muted);font-size:.85rem;margin-top:0">يُعاد بناء دارتك لقطة بلقطة على لوحة التسجيل مع تعليق صوتي، ثم يُدمج الميكروفون (اختياري) في ملف واحد.</p>
+      <label style="display:flex;gap:.5rem;align-items:center;font-size:.85rem"><input type="checkbox" id="csMic" checked /> 🎙️ دمج الميكروفون (تعليقك الحي)</label>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin:.5rem 0">
+        <button class="btn btn-amber ds-mini" id="csRec">🔴 توليد فيديو تعليمي</button>
+        <button class="btn btn-ghost ds-mini" id="csDlV" disabled>⬇️ تحميل .webm</button>
+        <button class="btn btn-ghost ds-mini" id="csDlT" disabled>⬇️ سكريبت التعليق</button>
+      </div>
+      <video id="csPreview" controls playsinline style="width:100%;border-radius:10px;display:none"></video>
+      <div id="csVidLog" class="ds-log" dir="ltr"></div>
+    </div>
+
+    <div data-pane="yt" hidden>
+      <div style="display:grid;gap:.5rem">
+        <button class="btn btn-ghost ds-mini" id="csYtConnect">🔑 ربط YouTube (@hitechlabtn)</button>
+        <label style="display:grid;gap:.3rem;font-size:.85rem">Playlist ID (اختياري)<input id="csPlaylist" dir="ltr" placeholder="PL…" /></label>
+        <button class="btn btn-amber" id="csYtUp" disabled>⬆️ رفع الفيديو المسجل</button>
+        <div class="bar" style="height:8px;background:var(--surface);border-radius:99px;overflow:hidden"><i id="csYtBar" style="display:block;height:100%;width:0;background:var(--green)"></i></div>
+        <div id="csYtLog" class="ds-log" dir="ltr"></div>
+        <div id="csYtDone" hidden></div>
+      </div>
+    </div>
+
+    <div data-pane="keys" hidden>
+      <p style="color:var(--muted);font-size:.82rem;margin-top:0">تُحفظ المفاتيح في متصفحك فقط (localStorage) — المنصة عديمة الحالة.</p>
+      <div style="display:grid;gap:.5rem">
+        <label style="display:grid;gap:.3rem;font-size:.85rem">Ghost URL<input id="csGhostUrl" dir="ltr" placeholder="https://blog.example.com" /></label>
+        <label style="display:grid;gap:.3rem;font-size:.85rem">Ghost Admin API Key<input id="csGhostKey" type="password" dir="ltr" placeholder="id:secret…" /></label>
+        <label style="display:grid;gap:.3rem;font-size:.85rem">Google OAuth Client ID (YouTube)<input id="csYtClient" dir="ltr" placeholder="….apps.googleusercontent.com" /></label>
+        <button class="btn btn-cyan ds-mini" id="csKeysSave">💾 حفظ المفاتيح</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { buildPost, publishPost } from '/vendor/ghost-publisher.js';
+  import { createDirector, runChoreography, voiceoverScript, supported as dirSupported } from '/vendor/video-director.js';
+  import { requestYtToken, uploadVideo, addToPlaylist, buildDescription } from '/vendor/youtube-publisher.js';
+  import { genFirmware } from '/vendor/local-ai.js';
+  import { PART_SPECS } from '/vendor/github-sync.js';
+
+  function boot() {
+  if (!document.getElementById('csOpen')) return;
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s ?? '').replace(/</g, '&lt;'); };
+  var store = {
+    get: function (k, d) { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  };
+  function wb() {
+    try {
+      if (window.__wattounaWB && window.__wattounaWB.getState) return window.__wattounaWB.getState();
+    } catch (e) {}
+    return { nodes: [], wires: [] };
+  }
+  function wbTitle() {
+    var t = document.getElementById('wbTitle');
+    return (t && t.value.trim()) || 'wattouna-circuit';
+  }
+  function vlog(el, t) {
+    var d = document.createElement('div');
+    d.textContent = t;
+    el.appendChild(d);
+    el.scrollTop = el.scrollHeight;
+  }
+  function bomOf(st) {
+    var seen = {}, out = [];
+    (st.nodes || []).forEach(function (n) {
+      if (!seen[n.type] && PART_SPECS[n.type]) { seen[n.type] = 1; out.push({ part: PART_SPECS[n.type][0], spec: PART_SPECS[n.type][1] }); }
+    });
+    return out.length ? out : [{ part: 'Empty canvas', spec: 'add modules first' }];
+  }
+
+  $('csOpen').addEventListener('click', function () {
+    $('csModal').hidden = false;
+    $('csGhostUrl').value = store.get('wattouna-ghost-url', '');
+    $('csGhostKey').value = store.get('wattouna-ghost-key', '');
+    $('csYtClient').value = store.get('wattouna-yt-client', '');
+    $('csPlaylist').value = store.get('wattouna-yt-playlist', '');
+    var t = document.getElementById('wbTitle');
+    if (t && !$('csTitle').value) $('csTitle').value = t.value.trim() || 'wattouna-circuit';
+  });
+  document.querySelectorAll('[data-close]').forEach(function (b) {
+    if (b.closest('#csModal')) b.addEventListener('click', function () { $('csModal').hidden = true; });
+  });
+  $('csModal').addEventListener('click', function (e) { if (e.target === $('csModal')) $('csModal').hidden = true; });
+  document.querySelectorAll('#csModal .tab').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('#csModal .tab').forEach(function (x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      var k = b.getAttribute('data-cs');
+      document.querySelectorAll('#csModal [data-pane]').forEach(function (p) { p.hidden = p.getAttribute('data-pane') !== k; });
+    });
+  });
+  $('csKeysSave').addEventListener('click', function () {
+    store.set('wattouna-ghost-url', $('csGhostUrl').value.trim());
+    store.set('wattouna-ghost-key', $('csGhostKey').value.trim());
+    store.set('wattouna-yt-client', $('csYtClient').value.trim());
+    store.set('wattouna-yt-playlist', $('csPlaylist').value.trim());
+    this.textContent = '✅ حُفظت محليًا!';
+    var self = this;
+    setTimeout(function () { self.textContent = '💾 حفظ المفاتيح'; }, 2000);
+  });
+
+  /* ---------- blog ---------- */
+  $('csBlogGo').addEventListener('click', async function () {
+    var L = $('csBlogLog');
+    L.innerHTML = '';
+    try {
+      var url = store.get('wattouna-ghost-url', ''), key = store.get('wattouna-ghost-key', '');
+      if (!url || !key) throw new Error('أدخل Ghost URL والمفتاح في تبويب المفاتيح أولًا.');
+      var st = wb();
+      var fw = genFirmware('thermometer');
+      var hook = window.__wattounaWB;
+      var svg = hook && hook.snapshot ? hook.snapshot() : '<svg xmlns="http://www.w3.org/2000/svg" width="110" height="62"></svg>';
+      vlog(L, 'publishing…');
+      var link = await publishPost({ url: url, key: key }, {
+        title: $('csTitle').value.trim() || wbTitle(),
+        purpose: 'Designed and simulated in Wattouna Maker Canvas — ' + st.nodes.length + ' modules, ' + st.wires.length + ' wires.',
+        svgSnapshot: svg, bom: bomOf(st), firmwareArduino: fw.arduino, firmwareMicro: fw.micropython,
+        wires: st.wires.map(function (w) { return { a: w.a, b: w.b, color: w.color }; }),
+      });
+      vlog(L, 'LIVE: ' + link);
+      L.innerHTML += '<br>🎉 <a target="_blank" rel="noopener" href="' + esc(link) + '">فتح المقال</a>';
+    } catch (e) {
+      vlog(L, 'ERR: ' + (e.message || e));
+    }
+  });
+
+  /* ---------- video director ---------- */
+  var lastVideo = null, lastVoice = '';
+  $('csRec').addEventListener('click', async function () {
+    var L = $('csVidLog');
+    L.innerHTML = '';
+    var sup = dirSupported();
+    if (!sup.canvas) { vlog(L, 'MediaRecorder unsupported here'); return; }
+    var st = wb();
+    if (!st.nodes.length) { vlog(L, 'empty canvas — add modules first'); return; }
+    var dir = createDirector();
+    var staging = { nodes: [], wires: [] };
+    var byId = {};
+    st.nodes.forEach(function (n) { byId[n.id] = n; });
+    var shots = [
+      { say: 'Welcome to Wattouna Lab. We build: ' + ($('csTitle').value.trim() || 'a solar circuit') + '.', run: function () {}, holdMs: 2200 },
+    ];
+    st.nodes.forEach(function (n, i) {
+      shots.push({
+        say: 'Step ' + (i + 1) + ': placing ' + n.type + '.',
+        run: function () { staging.nodes.push(n); },
+        holdMs: 2400,
+      });
+    });
+    (st.wires || []).slice(0, 12).forEach(function (w, i) {
+      shots.push({
+        say: 'Wiring ' + (i + 1) + ': ' + w.a + ' to ' + w.b + '.',
+        run: function () { staging.wires.push(w); },
+        holdMs: 2200,
+      });
+    });
+    shots.push({ say: 'Build complete. Validate, simulate, then print and share. Wattouna open hardware.', run: function () {}, holdMs: 2600 });
+    try {
+      await dir.start({ mic: $('csMic').checked, onLog: function (t) { vlog(L, t); } });
+      vlog(L, '🎬 action! narrating steps…');
+      var speak = function (t) {
+        try {
+          if (!('speechSynthesis' in window)) return;
+          window.speechSynthesis.cancel();
+          var u = new SpeechSynthesisUtterance(t.slice(0, 220));
+          u.lang = 'ar-SA';
+          window.speechSynthesis.speak(u);
+        } catch (e) {}
+      };
+      await runChoreography({
+        shots: shots,
+        snapshot: function () { return { nodes: staging.nodes.slice(), wires: staging.wires.slice() }; },
+        draw: function (ns, ws, cap) { dir.drawFrame(ns, ws, cap); },
+        speak: speak,
+      });
+      var out = await dir.stop();
+      lastVideo = out.video;
+      lastVoice = out.voiceover;
+      var url = URL.createObjectURL(lastVideo);
+      var pv = $('csPreview');
+      pv.src = url;
+      pv.style.display = 'block';
+      $('csDlV').disabled = false;
+      $('csDlT').disabled = false;
+      vlog(L, '✅ ' + (lastVideo.size / 1048576).toFixed(2) + 'MB webm ready');
+    } catch (e) {
+      vlog(L, 'ERR: ' + (e.message || e));
+      try { await dir.stop(); } catch (e2) {}
+    }
+  });
+  $('csDlV').addEventListener('click', function () {
+    if (!lastVideo) return;
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(lastVideo);
+    a.download = 'wattouna-tutorial.webm';
+    a.click();
+  });
+  $('csDlT').addEventListener('click', function () {
+    if (!lastVoice) return;
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([lastVoice], { type: 'text/plain' }));
+    a.download = 'wattouna-voiceover.txt';
+    a.click();
+  });
+
+  /* ---------- youtube ---------- */
+  var ytToken = '';
+  $('csYtConnect').addEventListener('click', async function () {
+    var cid = store.get('wattouna-yt-client', '');
+    if (!cid) { $('csYtLog').textContent = 'أدخل Google Client ID في تبويب المفاتيح.'; return; }
+    try {
+      var mod = await import('/vendor/youtube-publisher.js');
+      ytToken = await mod.requestYtToken(cid);
+      this.textContent = '✅ مربوط بـ YouTube';
+      $('csYtUp').disabled = !lastVideo;
+    } catch (e) {
+      $('csYtLog').textContent = 'ERR: ' + (e.message || e);
+    }
+  });
+  $('csYtUp').addEventListener('click', async function () {
+    var L = $('csYtLog');
+    L.innerHTML = '';
+    try {
+      if (!ytToken) throw new Error('اربط YouTube أولًا.');
+      if (!lastVideo) throw new Error('ولّد الفيديو أولًا من تبويب الفيديو.');
+      var mod = await import('/vendor/youtube-publisher.js');
+      var st = wb();
+      var title = ($('csTitle').value.trim() || wbTitle()) + ' — Wattouna Build';
+      var desc = mod.buildDescription({
+        title: title, bom: bomOf(st),
+        blogUrl: 'https://wattouna.pages.dev',
+        projectUrl: 'https://wattouna.pages.dev/workbench',
+      });
+      vlog(L, 'uploading…');
+      var res = await mod.uploadVideo(ytToken, lastVideo, { title: title, description: desc, privacy: 'unlisted' }, function (p) {
+        document.getElementById('csYtBar').style.width = Math.round(p * 100) + '%';
+      });
+      var pl = ($('csPlaylist').value || store.get('wattouna-yt-playlist', '')).trim();
+      if (pl) {
+        try { await mod.addToPlaylist(ytToken, res.videoId, pl); vlog(L, 'playlist ✓'); }
+        catch (e) { vlog(L, 'playlist skip: ' + e.message); }
+      }
+      store.set('wattouna-yt-playlist', pl);
+      var done = $('csYtDone');
+      if (done) { done.hidden = false; done.innerHTML = '🎉 <a target="_blank" rel="noopener" href="' + res.url + '">' + res.url + '</a>'; }
+      vlog(L, 'LIVE: ' + res.url);
+    } catch (e) {
+      vlog(L, 'ERR: ' + (e.message || e));
+    }
+  });
+  } // end boot()
+  boot();
+</script>
+
+<style>
+  .wb-sync { margin-bottom: 1rem; }
+  .ds-modal { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.65); display: grid; place-items: center; padding: 1rem; }
+  .ds-modal[hidden] { display: none; }
+  .ds-card { width: min(560px, 94vw); max-height: 88dvh; overflow-y: auto; display: grid; gap: .7rem; position: relative; }
+  .ds-mini { padding: .45rem .85rem; font-size: .82rem; }
+  .ds-log {
+    direction: ltr; text-align: left; background: var(--ink);
+    border: 1px solid var(--border); border-radius: 10px; padding: .7rem;
+    font-size: .72rem; line-height: 1.55; max-height: 160px; overflow: auto;
+    font-family: ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap;
+  }
+  #csModal input {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: .55rem .7rem; color: var(--text); font-family: inherit; width: 100%;
+  }
+  #csYtDone { background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.5); border-radius: 10px; padding: .6rem .8rem; }
+  #csYtDone[hidden] { display: none; }
+</style>
