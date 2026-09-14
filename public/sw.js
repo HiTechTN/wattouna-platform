@@ -8,7 +8,7 @@
    - cache-first: same-origin pages/assets/vendor/downloads (offline workshop);
    - network-first: Supabase API + /projects/ dynamic pages (fresh wins);
    - API/auth traffic is never cached. */
-const VERSION = 'wattouna-v4';
+const VERSION = 'wattouna-v5';
 const SHELL = [
   '/',
   '/index.html',
@@ -27,6 +27,8 @@ const SHELL = [
   '/vendor/device-sniffer.js',
   '/vendor/local-ai.js',
   '/vendor/three-viewer.js',
+  '/vendor/web-flasher.js',
+  '/vendor/github-sync.js',
   '/downloads/pbx36-chassis.stl',
   '/downloads/pbx36-front-panel.stl',
   '/downloads/pbx36-wiring-guide.pdf',

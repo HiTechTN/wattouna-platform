@@ -1,0 +1,268 @@
+---
+---
+<div class="card wb-sync">
+  <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
+    <button id="dsFlashBtn" class="btn btn-amber" style="padding:.55rem 1.1rem">🔥 حرق الكود (Flash to Device)</button>
+    <button id="dsGhBtn" class="btn btn-cyan" style="padding:.55rem 1.1rem">🐙 نشر على GitHub</button>
+    <span id="dsStatus" style="font-size:.85rem;color:var(--muted)">USB + GitHub جاهزان من المتصفح</span>
+  </div>
+</div>
+
+<!-- Flash modal -->
+<div id="flashModal" class="ds-modal" hidden>
+  <div class="card ds-card" role="dialog" aria-label="حرق الكود">
+    <button class="auth-x" data-close aria-label="إغلاق">✕</button>
+    <h3 style="margin-top:0">🔥 حرق الكود على ESP32</h3>
+    <div id="flashNoSerial" class="ds-warn" hidden>
+      ⚠️ متصفحك لا يدعم Web Serial (مطلوب Chrome/Edge + USB/OTG). انسخ الكود واستعمل Arduino IDE أو Thonny:
+      <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap">
+        <button class="btn btn-ghost ds-mini" id="flashCopy">📋 نسخ الكود</button>
+        <button class="btn btn-ghost ds-mini" id="flashDl">⬇️ تحميل .ino</button>
+      </div>
+    </div>
+    <div id="flashMain">
+      <div class="tabs" style="margin-bottom:.6rem">
+        <button class="tab active" data-fw="py">🐍 MicroPython (حرق مباشر)</button>
+        <button class="tab" data-fw="ino">🔷 Arduino (نسخ + IDE)</button>
+      </div>
+      <pre id="flashCode" dir="ltr" class="ds-code"></pre>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-amber ds-mini" id="flashConnect">🔌 اختيار المنفذ</button>
+        <select id="flashBaud" aria-label="baud">
+          <option value="115200">115200 baud</option>
+          <option value="460800">460800 baud</option>
+        </select>
+        <button class="btn btn-cyan ds-mini" id="flashGo" disabled>⚡ حرق MicroPython</button>
+        <button class="btn btn-ghost ds-mini" id="flashMon">📟 مونيتور</button>
+      </div>
+      <pre id="flashLog" class="ds-log" dir="ltr"></pre>
+    </div>
+  </div>
+</div>
+
+<!-- GitHub modal -->
+<div id="ghModal" class="ds-modal" hidden>
+  <div class="card ds-card" role="dialog" aria-label="نشر على GitHub">
+    <button class="auth-x" data-close aria-label="إغلاق">✕</button>
+    <h3 style="margin-top:0">🐙 نشر مفتوح المصدر</h3>
+    <label style="display:grid;gap:.3rem;font-size:.85rem">🔑 Personal Access Token (يُحفظ محليًا فقط)
+      <input id="ghPat" type="password" placeholder="ghp_…" dir="ltr" />
+    </label>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="btn btn-ghost ds-mini" id="ghCheck">تحقق ✅</button>
+      <span id="ghWho" style="font-size:.85rem;align-self:center"></span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+      <label style="display:grid;gap:.3rem;font-size:.85rem">📦 اسم المستودع<input id="ghRepo" dir="ltr" /></label>
+      <label style="display:grid;gap:.3rem;font-size:.85rem">🏢 المنظمة (اختياري)<input id="ghOrg" dir="ltr" placeholder="HiTechTN" /></label>
+    </div>
+    <small style="color:var(--muted)">سيُرفع: README.md • schematic.json • blueprint.pdf • src/main.py</small>
+    <button class="btn btn-amber" id="ghPublish">🚀 نشر الآن</button>
+    <div id="ghLog" class="ds-log" dir="ltr"></div>
+    <div id="ghDone" hidden></div>
+  </div>
+</div>
+
+<script type="module">
+  import { serialSupported, requestEspPort, flashMicroPython, runMonitor } from '/vendor/web-flasher.js';
+  import { validateToken, createRepo, putFile, buildReadme, slugifyTitle, toBase64, PART_SPECS } from '/vendor/github-sync.js';
+  import { genFirmware } from '/vendor/local-ai.js';
+
+  function boot() {
+  if (!document.getElementById('dsFlashBtn')) return;
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s ?? '').replace(/</g, '&lt;'); };
+
+  function wb() {
+    try {
+      if (window.__wattounaWB && window.__wattounaWB.getState) return window.__wattounaWB.getState();
+    } catch (e) {}
+    return { nodes: [], wires: [] };
+  }
+  function wbTitle() {
+    var t = document.getElementById('wbTitle');
+    return (t && t.value.trim()) || 'wattouna-circuit';
+  }
+  function log(el, line, cls) {
+    var d = document.createElement('div');
+    if (cls) d.style.color = cls === 'ok' ? '#86efac' : cls === 'err' ? '#fca5a5' : '#93a4c4';
+    d.textContent = line;
+    el.appendChild(d);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  /* ---------------- flash ---------------- */
+  var port = null, monitoring = false, stopMon = false, fwTab = 'py';
+  var fw = genFirmware('thermometer');
+  function paintCode() {
+    $('flashCode').textContent = fwTab === 'py' ? fw.micropython : fw.arduino;
+  }
+  document.querySelectorAll('#flashModal .tab').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('#flashModal .tab').forEach(function (x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      fwTab = b.getAttribute('data-fw');
+      paintCode();
+    });
+  });
+  $('dsFlashBtn').addEventListener('click', function () {
+    $('flashModal').hidden = false;
+    paintCode();
+    if (!serialSupported()) {
+      $('flashNoSerial').hidden = false;
+      $('flashMain').style.opacity = '.45';
+    }
+  });
+  $('flashCopy').addEventListener('click', async function () {
+    try { await navigator.clipboard.writeText($('flashCode').textContent); this.textContent = '✅ نُسخ!'; }
+    catch (e) {}
+  });
+  $('flashDl').addEventListener('click', function () {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([fw.arduino], { type: 'text/plain' }));
+    a.download = 'wattouna-thermometer.ino';
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 3000);
+  });
+  $('flashConnect').addEventListener('click', async function () {
+    var p = await requestEspPort();
+    if (!p) { log($('flashLog'), 'cancelled by user'); return; }
+    port = p;
+    log($('flashLog'), '🔌 port selected — ready', 'ok');
+    $('flashGo').disabled = false;
+  });
+  $('flashGo').addEventListener('click', async function () {
+    if (fwTab !== 'py') {
+      log($('flashLog'), 'Arduino needs IDE compile — use Copy/Download above.');
+      return;
+    }
+    if (!port) { log($('flashLog'), 'select a port first', 'err'); return; }
+    this.disabled = true;
+    try {
+      await flashMicroPython(port, fw.micropython, 'main.py', function (l, c) { log($('flashLog'), l, c); }, Number($('flashBaud').value));
+    } catch (e) {
+      log($('flashLog'), '❌ ' + (e.message || e), 'err');
+    }
+    port = null;
+    this.disabled = false;
+  });
+  $('flashMon').addEventListener('click', async function () {
+    if (monitoring) { stopMon = true; this.textContent = '📟 مونيتور'; return; }
+    var p = port || await requestEspPort();
+    if (!p) return;
+    port = null;
+    monitoring = true; stopMon = false;
+    this.textContent = '⏹️ إيقاف المونيتور';
+    log($('flashLog'), '📟 monitor open — reset the board', 'ok');
+    try {
+      await runMonitor(p, function (t) { log($('flashLog'), t); }, function () { return stopMon; }, Number($('flashBaud').value));
+    } catch (e) {
+      log($('flashLog'), 'monitor closed', 'err');
+    }
+    monitoring = false;
+    this.textContent = '📟 مونيتور';
+  });
+
+  /* ---------------- github ---------------- */
+  var ghToken = '';
+  try { ghToken = localStorage.getItem('wattouna-gh-pat') || ''; } catch (e) {}
+  $('dsGhBtn').addEventListener('click', function () {
+    $('ghModal').hidden = false;
+    $('ghPat').value = ghToken;
+    var t = document.getElementById('wbTitle');
+    if (t && !$('ghRepo').value) $('ghRepo').value = slugifyTitle(t.value.trim() || 'wattouna-circuit');
+  });
+  document.querySelectorAll('[data-close]').forEach(function (b) {
+    b.addEventListener('click', function () { b.closest('.ds-modal').hidden = true; });
+  });
+  document.querySelectorAll('.ds-modal').forEach(function (m) {
+    m.addEventListener('click', function (e) { if (e.target === m) m.hidden = true; });
+  });
+  $('ghCheck').addEventListener('click', async function () {
+    ghToken = $('ghPat').value.trim();
+    try {
+      var u = await validateToken(ghToken);
+      try { localStorage.setItem('wattouna-gh-pat', ghToken); } catch (e) {}
+      $('ghWho').textContent = '✅ @' + u.login;
+    } catch (e) {
+      $('ghWho').textContent = '❌ ' + e.message;
+    }
+  });
+  $('ghPublish').addEventListener('click', async function () {
+    var L = $('ghLog');
+    L.innerHTML = '';
+    var say = function (t) { log(L, t); };
+    try {
+      ghToken = $('ghPat').value.trim();
+      if (!ghToken) throw new Error('أدخل الـ Token أولًا.');
+      var u = await validateToken(ghToken);
+      try { localStorage.setItem('wattouna-gh-pat', ghToken); } catch (e) {}
+      say('✅ @' + u.login);
+      var st = wb();
+      var title = wbTitle();
+      var repoName = $('ghRepo').value.trim() || slugifyTitle(title);
+      var org = $('ghOrg').value.trim();
+      say('📦 creating ' + (org ? org + '/' : '') + repoName + '…');
+      var repo = await createRepo(ghToken, { name: repoName, description: 'Wattouna open hardware: ' + title, org: org || undefined });
+      say('✅ ' + repo.full_name);
+      var bom = [];
+      var seen = {};
+      st.nodes.forEach(function (n) {
+        if (!seen[n.type] && PART_SPECS[n.type]) { seen[n.type] = 1; bom.push({ part: PART_SPECS[n.type][0], spec: PART_SPECS[n.type][1] }); }
+      });
+      var readme = buildReadme({ title: title, purpose: 'Designed and simulated in Wattouna Maker Canvas.', bom: bom, wires: st.wires.length, nodes: st.nodes.length, author: '@' + u.login });
+      var files = [
+        ['README.md', readme],
+        ['schematic.json', JSON.stringify({ exportedBy: 'wattouna', canvas_state: st }, null, 2)],
+        ['src/main.py', genFirmware('thermometer').micropython],
+      ];
+      say('📄 README + schematic + firmware…');
+      for (const [p, c] of files) {
+        await putFile(ghToken, repo.full_name, p, toBase64(c), 'wattouna: add ' + p);
+        say('  + ' + p);
+      }
+      say('📐 blueprint.pdf…');
+      var pdfMod = await import('/vendor/pdf-export.js');
+      var snap = (window.__wattounaWB && window.__wattounaWB.snapshot) ? window.__wattounaWB.snapshot() : '<svg xmlns="http://www.w3.org/2000/svg" width="110" height="62"></svg>';
+      var blob = await pdfMod.generateBlueprint({
+        title: title, purpose: 'Wattouna open-hardware export.',
+        svgSnapshot: snap,
+        bom: bom, wires: st.wires.map(function (w) { return { a: w.a, b: w.b, color: w.color }; }),
+        meta: ['exported from workbench'],
+      });
+      var buf = new Uint8Array(await blob.arrayBuffer());
+      await putFile(ghToken, repo.full_name, 'blueprint.pdf', toBase64(buf), 'wattouna: add blueprint.pdf');
+      say('  + blueprint.pdf');
+      var done = $('ghDone');
+      done.hidden = false;
+      done.innerHTML = '🎉 <a target="_blank" rel="noopener" href="' + repo.html_url + '">' + esc(repo.full_name) + '</a>';
+      say('DONE ✅');
+    } catch (e) {
+      say('❌ ' + (e.message || e));
+    }
+  });
+  } // end boot()
+  boot();
+</script>
+
+<style>
+  .wb-sync { margin-bottom: 1rem; }
+  .ds-modal { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.65); display: grid; place-items: center; padding: 1rem; }
+  .ds-modal[hidden] { display: none; }
+  .ds-card { width: min(560px, 94vw); max-height: 88dvh; overflow-y: auto; display: grid; gap: .7rem; position: relative; }
+  .ds-mini { padding: .45rem .85rem; font-size: .82rem; }
+  .ds-code, .ds-log {
+    direction: ltr; text-align: left; background: var(--ink);
+    border: 1px solid var(--border); border-radius: 10px; padding: .7rem;
+    font-size: .72rem; line-height: 1.55; max-height: 220px; overflow: auto;
+    font-family: ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap;
+  }
+  .ds-warn { background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.45); border-radius: 10px; padding: .6rem .8rem; font-size: .85rem; }
+  .ds-warn[hidden] { display: none; }
+  #ghModal input, #flashModal select {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: .55rem .7rem; color: var(--text); font-family: inherit; width: 100%;
+  }
+  #ghDone { background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.5); border-radius: 10px; padding: .6rem .8rem; }
+  #ghDone[hidden] { display: none; }
+</style>

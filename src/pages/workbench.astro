@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import VoiceAI from '../components/VoiceAI.astro';
+import DeviceSync from '../components/DeviceSync.astro';
 const SUPA_URL = import.meta.env.PUBLIC_SUPABASE_URL || '';
 const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 ---
@@ -57,6 +58,7 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
       <div id="wbNodes"></div>
     </div>
     <div id="wbAlert" class="wb-alert" hidden></div>
+    <DeviceSync />
     <VoiceAI />
   </div>
 </BaseLayout>
