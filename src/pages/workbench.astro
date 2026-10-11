@@ -36,6 +36,7 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
         <span id="wbSimState" class="pill">⏸️ متوقف</span>
         <span id="wbTier" class="pill cyan">…</span>
         <span class="wb-zoom">
+          <button id="wbLayout" title="ترتيب تلقائي هرمي (Auto-Layout)">🧠 ترتيب ذكي</button>
           <button id="wbZoomOut" aria-label="تصغير">−</button>
           <button id="wbZoomReset" aria-label="إعادة العرض">⌂ <span id="wbZoomLvl" dir="ltr">100%</span></button>
           <button id="wbZoomIn" aria-label="تكبير">＋</button>
@@ -57,6 +58,8 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
       <svg id="wbSvg"></svg>
       <canvas id="wbFx" aria-hidden="true"></canvas>
       <div id="wbNodes"></div>
+      <div id="wbMini" title="الخريطة المصغّرة — انقر للانتقال"><canvas id="wbMiniCv" width="188" height="126"></canvas></div>
+      <div id="wbHud" class="wb-hud" hidden></div>
     </div>
     <div id="wbAlert" class="wb-alert" hidden></div>
     <DeviceSync />
@@ -70,6 +73,8 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   import { localSaveProject, localGetProject, uid } from '/vendor/wb-store.js';
   import { renderPart } from '/vendor/hardware-graphics.js';
   import { sniffDevice } from '/vendor/device-sniffer.js';
+  import { installWireonaBridge, SYNC_EVENT } from '/vendor/wireona-bridge.js';
+  import { autoLayout, routeOrtho, nearestTerminal, computeBounds, resolveCollisions } from '/vendor/wattouna-canvas.js';
   let gfxTier = 'eco';
   try { gfxTier = sniffDevice().tier; } catch (e) { gfxTier = 'eco'; }
 
@@ -202,6 +207,8 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   window.addEventListener('resize', () => { if (simOn) fxResize(); });
   paintTier();
 
+  const NODE_W = 184, NODE_H = 196;   /* node body size in world units */
+  const TERM_R = 12;                  /* terminal radius in world units */
   let state = { nodes: [], wires: [] };
   let pending = null;       // terminal key awaiting pair
   let editingId = null;     // loaded project id (own)
@@ -217,6 +224,30 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   let voltMap = {};         // union root -> volts (sim)
   const SIDES = ['l', 't', 'r', 'b'];
   const effSide = (t, rot) => SIDES[(SIDES.indexOf(t.side) + (((rot || 0) % 4) + 4) % 4) % 4];
+
+  /* ---- Smart-canvas geometer: world rects & terminal pin coordinates ---- */
+  const nodeW = () => NODE_W;
+  const nodeH = (nd) => (nd.type === 'button' || nd.type === 'wago' ? NODE_H - 14 : NODE_H);
+  function nodeRect(nd) { return { id: nd.id, x: nd.x, y: nd.y, w: nodeW(), h: nodeH(nd) }; }
+  /* Terminal world position: node top-left + side offset. rotation rotates the side. */
+  function terminalPin(nd, term) {
+    const s = effSide(term, nd.rot);
+    const W = nodeW(), H = nodeH(nd);
+    let x, y;
+    if (s === 'l') { x = nd.x; y = nd.y + term.pos * H; }
+    else if (s === 'r') { x = nd.x + W; y = nd.y + term.pos * H; }
+    else if (s === 't') { x = nd.x + term.pos * W; y = nd.y; }
+    else { x = nd.x + term.pos * W; y = nd.y + H; }
+    return { x, y };
+  }
+  function allTerminalPins() {
+    const pins = [];
+    state.nodes.forEach((nd) => (PARTS[nd.type]?.terms || []).forEach((t) => {
+      const w = terminalPin(nd, t);
+      pins.push({ node: nd.id, term: t.id, x: w.x, y: w.y, key: nd.id + ':' + t.id });
+    }));
+    return pins;
+  }
 
   const esc = (s) => String(s ?? '').replace(/</g, '&lt;');
   const termKey = (n, t) => n + ':' + t;
@@ -264,6 +295,8 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
       if (!p) return;
       const rot = ((nd.rot || 0) % 4 + 4) % 4;
       const el = document.createElement('div');
+      /* inherit Astro's scoped-CSS attributes (styles apply to dynamically-created nodes) */
+      for (const a of layer.getAttributeNames()) if (a.startsWith('data-astro-cid')) el.setAttribute(a, layer.getAttribute(a));
       el.className = 'wb-node' + (nd.pressed ? ' pressed' : '');
       el.style.left = nd.x + 'px';
       el.style.top = nd.y + 'px';
@@ -271,7 +304,8 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
       el.dataset.nid = nd.id;
       el.innerHTML = `<div class="wb-node-head" style="background:${p.c}22"><b>${esc(p.name)}</b><span><button data-rot title="تدوير 90°">⟳</button><button data-delnode title="حذف">✕</button></span></div>
         <div class="wb-node-graphic" style="transform:rotate(${rot * 90}deg)">${renderPart(nd.type, nd.id.replace(/[^a-z0-9]/gi, ''))}</div>
-        <div class="wb-node-sub">${esc(p.sub)}${nd.type === 'button' ? (nd.pressed ? ' • <b style="color:var(--green)">مضغوط</b>' : ' • محرر') : ''}</div>` +
+        <div class="wb-node-sub">${esc(p.sub)}${nd.type === 'button' ? (nd.pressed ? ' • <b style="color:var(--green)">مضغوط</b>' : ' • محرر') : ''}</div>
+        <span class="wb-tele" dir="ltr"></span>` +
         p.terms.map((t) => {
           const s = effSide(t, rot);
           return `<button class="wb-term side-${s}" data-t="${esc(nd.id)}:${esc(t.id)}" style="${s === 'l' ? 'left' : s === 'r' ? 'right' : s === 't' ? 'top' : 'bottom'}:-7px;${s === 'l' || s === 'r' ? 'top' : 'left'}:${t.pos * 100}%" title="${esc(t.label)}">${esc(t.label)}</button>`;
@@ -285,6 +319,8 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   function applyView() {
     layer.style.transform = `translate(${view.x}px,${view.y}px) scale(${view.k})`;
     layer.style.transformOrigin = '0 0';
+    /* expose for tests/exports: exact viewport → world mapping */
+    window.__wattounaView = { x: view.x, y: view.y, k: view.k };
     const g = Math.max(8, 22 * view.k);
     canvas.style.backgroundPosition = `${view.x}px ${view.y}px`;
     canvas.style.backgroundSize = `${g}px ${g}px`;
@@ -293,7 +329,7 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   }
 
   function zoomAt(mx, my, ratio) {
-    const k2 = Math.max(0.4, Math.min(2, view.k * ratio));
+    const k2 = Math.max(0.3, Math.min(2.5, view.k * ratio));
     const r = k2 / view.k;
     view.x = mx - (mx - view.x) * r;
     view.y = my - (my - view.y) * r;
@@ -302,32 +338,163 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
     drawWires();
   }
 
+  /* ---- MILESTONE 1: Auto-Layout — hierarchical, zero-overlap ---- */
+  function layoutNow(sayMsg) {
+    if (!state.nodes.length) return;
+    const layoutNodes = state.nodes.map((nd) => ({ id: nd.id, type: nd.type, x: nd.x, y: nd.y, w: nodeW(), h: nodeH(nd) }));
+    const pos = autoLayout(layoutNodes, state.wires);
+    /* rotate nodes so l/r terminals face their layer neighbours: keep rotation —
+       the layered addNode defaults already match, and rotation is user intent **/
+    pos.forEach((p, id) => {
+      const nd = state.nodes.find((n) => n.id === id);
+      if (nd) { nd.x = p.x; nd.y = p.y; }
+    });
+    fitToContent();
+    render();
+    if (simOn) simTick();
+    if (sayMsg) say('🧠 رُتّبت الدارة هرميًا — صفر تداخل ✅', true);
+  }
+
+  function fitToContent() {
+    if (!state.nodes.length) { view.x = 0; view.y = 0; view.k = 1; applyView(); drawWires(); return; }
+    const pts = [];
+    state.wires.forEach((w) => { const a = termXY(w.a), b = termXY(w.b); if (a) pts.push(a); if (b) pts.push(b); });
+    const b = computeBounds(state.nodes.map((nd) => ({ id: nd.id, type: nd.type, x: nd.x, y: nd.y, w: nodeW(), h: nodeH(nd) })), pts);
+    const PAD = 40;
+    const cw = canvas.clientWidth - PAD * 2, ch = canvas.clientHeight - PAD * 2;
+    const k = Math.max(0.3, Math.min(2.5, Math.min(cw / b.w, ch / b.h)));
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    view.k = k;
+    view.x = canvas.clientWidth / 2 - cx * k;
+    view.y = canvas.clientHeight / 2 - cy * k;
+    applyView();
+  }
+
+  document.getElementById('wbLayout').addEventListener('click', () => layoutNow(true));
+
+  /* ---- Telemetry overlays: floating voltage/current badges per node (Milestone 2/5) ---- */
+  function paintTelemetry() {
+    /* badges live in the per-node DOM (see render()) — refresh their values */
+    state.nodes.forEach((nd) => {
+      const el = layer.querySelector(`[data-nid="${CSS.escape(nd.id)}"] .wb-tele`);
+      if (!el) return;
+      const P = PARTS[nd.type];
+      if (!P) return;
+      let txt = null, cls = '';
+      if (simOn) {
+        /* find a powered source pin on this node: use voltMap keyed by root net */
+        const pin = (P.terms || []).map((t) => nd.id + ':' + t.id).find((k) => voltMap[k] !== undefined);
+        const rootKey = pin && (() => {
+          const { find } = buildNets([], []);
+          try { return find(pin); } catch (e) { return null; }
+        })();
+        const v = rootKey ? voltMap[rootKey] : undefined;
+        if (v !== undefined && v > 0) { txt = v.toFixed(1) + ' V'; cls = 'tele-v'; }
+      } else if (nd.type === 'battery') { txt = '36.0 V standby'; cls = 'tele-idle'; }
+      if (txt) { el.textContent = txt; el.className = 'wb-tele on ' + cls; }
+      else el.className = 'wb-tele';
+    });
+  }
+
+  /* ---- Minimap / navigator (Milestone 4) ---- */
+  const miniCv = document.getElementById('wbMiniCv');
+  function paintMini() {
+    if (!miniCv) return;
+    const g = miniCv.getContext('2d');
+    if (!g) return;
+    g.clearRect(0, 0, miniCv.width, miniCv.height);
+    if (!state.nodes.length) { miniCv.parentElement.classList.add('empty'); return; }
+    miniCv.parentElement.classList.remove('empty');
+    const pts = [];
+    state.wires.forEach((w) => { const a = termXY(w.a), b = termXY(w.b); if (a) pts.push(a); if (b) pts.push(b); });
+    const b = computeBounds(state.nodes.map((nd) => ({ id: nd.id, type: nd.type, x: nd.x, y: nd.y, w: nodeW(), h: nodeH(nd) })), pts);
+    const S = Math.min((miniCv.width - 16) / b.w, (miniCv.height - 16) / b.h);
+    const ox = 8 - b.x * S, oy = 8 - b.y * S;
+    /* viewport rect */
+    const vpX = -view.x / view.k, vpY = -view.y / view.k;
+    const vpW = canvas.clientWidth / view.k, vpH = canvas.clientHeight / view.k;
+    g.strokeStyle = 'rgba(56,189,248,.9)'; g.lineWidth = 1.5;
+    g.strokeRect(ox + vpX * S, oy + vpY * S, vpW * S, vpH * S);
+    /* wires */
+    g.strokeStyle = 'rgba(148,163,184,.5)'; g.lineWidth = 1;
+    state.wires.forEach((w) => {
+      const a = termXY(w.a), c = termXY(w.b);
+      if (!a || !c) return;
+      g.beginPath(); g.moveTo(ox + a.x * S, oy + a.y * S); g.lineTo(ox + c.x * S, oy + c.y * S); g.stroke();
+    });
+    /* nodes */
+    state.nodes.forEach((nd) => {
+      const P = PARTS[nd.type];
+      g.fillStyle = (P && P.c) || '#64748b';
+      g.fillRect(ox + nd.x * S, oy + nd.y * S, Math.max(3, nodeW() * S), Math.max(3, nodeH(nd) * S));
+    });
+  }
+  const miniBox = document.getElementById('wbMini');
+  if (miniBox) miniBox.addEventListener('pointerdown', (e) => {
+    const r = miniCv.getBoundingClientRect();
+    /* click → center viewport there at current zoom */
+    const wx = (e.clientX / view.k) - (view.x ? 0 : 0); /* world = screen/k - offset/k */
+    const b = (() => {
+      const pts = [];
+      state.wires.forEach((w) => { const a = termXY(w.a), c = termXY(w.b); if (a) pts.push(a); if (c) pts.push(c); });
+      return computeBounds(state.nodes.map((nd) => ({ id: nd.id, type: nd.type, x: nd.x, y: nd.y, w: nodeW(), h: nodeH(nd) })), pts);
+    })();
+    const S = Math.min((miniCv.width - 16) / b.w, (miniCv.height - 16) / b.h);
+    const mx = e.clientX - r.left - 8, my = e.clientY - r.top - 8;
+    const worldX = (mx / S) + b.x, worldY = (my / S) + b.y;
+    view.x = canvas.clientWidth / 2 - worldX * view.k;
+    view.y = canvas.clientHeight / 2 - worldY * view.k;
+    applyView();
+    drawWires();
+  });
+
   function termXY(key) {
-    const el = layer.querySelector(`[data-t="${CSS.escape(key)}"]`);
-    if (!el) return null;
-    const c = canvas.getBoundingClientRect(), r = el.getBoundingClientRect();
-    return { x: r.left - c.left + r.width / 2, y: r.top - c.top + r.height / 2 };
+    const pin = allTerminalPins().find((p) => p.key === key);
+    return pin ? { x: pin.x, y: pin.y } : null;
+  }
+
+  /* ---- Orthogonal, obstacle-avoiding wire rendering (Milestone 3) ---- */
+  function roundedPath(pts, rad = 12) {
+    if (pts.length < 2) return '';
+    let d = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 1; i < pts.length; i++) {
+      const b = pts[i], nx = pts[i + 1];
+      if (!nx) { d += ` L ${b.x} ${b.y}`; continue; }
+      const a = pts[i - 1];
+      const inLen = Math.hypot(b.x - a.x, b.y - a.y);
+      const outLen = Math.hypot(nx.x - b.x, nx.y - b.y);
+      const r = Math.min(rad, inLen / 2, outLen / 2);
+      const inX = b.x - (b.x - a.x) / inLen * r, inY = b.y - (b.y - a.y) / inLen * r;
+      const outX = b.x + (nx.x - b.x) / outLen * r, outY = b.y + (nx.y - b.y) / outLen * r;
+      d += ` L ${inX} ${inY} Q ${b.x} ${b.y} ${outX} ${outY}`;
+    }
+    return d;
   }
 
   function drawWires() {
     svg.setAttribute('viewBox', `0 0 ${canvas.clientWidth} ${canvas.clientHeight}`);
     svg.innerHTML = '';
+    const obstacles = state.nodes.map(nodeRect);
     state.wires.forEach((w) => {
       const a = termXY(w.a), b = termXY(w.b);
       if (!a || !b) return;
-      const dx = Math.max(40, Math.abs(b.x - a.x) / 2);
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('d', `M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x} ${b.y}`);
-      path.setAttribute('stroke', w.color);
-      path.setAttribute('stroke-width', '3.5');
-      path.setAttribute('fill', 'none');
-      path.setAttribute('stroke-linecap', 'round');
-      path.dataset.wid = w.id;
-      path.style.cursor = 'pointer';
+      /* A* orthogonal route AROUND components (never crosses them) */
+      const pts = routeOrtho(a, b, obstacles);
+      const el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      /* inherit Astro's scoped-CSS attribute so styles (flow animation) apply */
+      const scopeAttr = svg.getAttributeNames().find((a) => a.startsWith('data-astro-cid'));
+      if (scopeAttr) el.setAttribute(scopeAttr, svg.getAttribute(scopeAttr));
+      el.setAttribute('d', roundedPath(pts));
+      el.setAttribute('stroke', w.color);
+      el.setAttribute('stroke-width', '3.5');
+      el.setAttribute('fill', 'none');
+      el.setAttribute('stroke-linecap', 'round');
+      el.dataset.wid = w.id;
+      el.style.cursor = 'pointer';
       const del = (e) => { e.preventDefault(); e.stopPropagation(); state.wires = state.wires.filter((x) => x.id !== w.id); drawWires(); if (simOn) simTick(); };
-      path.addEventListener('dblclick', del);
-      path.addEventListener('contextmenu', del);
-      svg.appendChild(path);
+      el.addEventListener('dblclick', del);
+      el.addEventListener('contextmenu', del);
+      svg.appendChild(el);
     });
     // live voltmeters: sim → computed node voltage; idle → 36.0 if wired
     const live = new Set();
@@ -350,6 +517,8 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
     layer.querySelectorAll('.wb-term').forEach((el) => {
       el.classList.toggle('pending', el.getAttribute('data-t') === pending);
     });
+    paintTelemetry();
+    paintMini();
   }
 
   /* ---------------- interactions ---------------- */
@@ -389,13 +558,31 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
       return;
     }
     const key = term.getAttribute('data-t');
-    if (!pending) { pending = key; drawWires(); say('اختر الطرف الثاني…'); return; }
+    if (!pending) { pending = key; drawWires(); say('اختر الطرف الثاني… (يبرز الطرف الأقرب مغناطيسيًا)'); return; }
     if (pending === key) { pending = null; drawWires(); return; }
     state.wires.push({ id: uid(), a: pending, b: key, color: colorSel.value });
     pending = null;
+    layer.querySelectorAll('.wb-term.magnet').forEach((el) => el.classList.remove('magnet'));
     drawWires();
     if (simOn) simTick(true);
     say(`سلك جديد (${state.wires.length}) ✅`, true);
+  });
+
+  /* ---- Magnetic snapping: highlight nearest terminal while a wire is pending ---- */
+  layer.addEventListener('pointermove', (e) => {
+    if (!pending) return;
+    const c = canvas.getBoundingClientRect();
+    const world = { x: (e.clientX - c.left - view.x) / view.k, y: (e.clientY - c.top - view.y) / view.k };
+    const pins = allTerminalPins().map(({ node, term, x, y }) => ({ node, term, x, y }));
+    const near = nearestTerminal(world, pins, 34);
+    layer.querySelectorAll('.wb-term.magnet').forEach((el) => el.classList.remove('magnet'));
+    if (near) {
+      const nearKey = near.node + ':' + near.term;
+      if (nearKey !== pending) {
+        const el = layer.querySelector(`[data-t="${CSS.escape(nearKey)}"]`);
+        if (el) el.classList.add('magnet');
+      }
+    }
   });
 
   layer.addEventListener('pointerdown', (e) => {
@@ -477,31 +664,52 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
     if (el) { el.style.left = dragNode.x + 'px'; el.style.top = dragNode.y + 'px'; }
     drawWires();
   });
-  window.addEventListener('pointerup', () => { dragNode = null; });
-  window.addEventListener('wattouna:ai-add-part', (e) => {
-    const type = e.detail?.type;
-    if (!type || !PARTS[type]) return;
-    addNode(type);
-    say(`🤖 أضاف المساعد: ${PARTS[type].name}`, true);
-    if (simOn) simTick();
+  window.addEventListener('pointerup', () => {
+    if (dragNode) {
+      /* push the dropped node out of any overlap (zero-collision guarantee) */
+      const me = nodeRect(dragNode);
+      const others = state.nodes.filter((n) => n.id !== dragNode.id).map(nodeRect);
+      const fix = resolveCollisions(me, others);
+      if (fix.x !== dragNode.x || fix.y !== dragNode.y) {
+        dragNode.x = fix.x; dragNode.y = fix.y;
+        const el = layer.querySelector(`[data-nid="${CSS.escape(dragNode.id)}"]`);
+        if (el) { el.style.left = fix.x + 'px'; el.style.top = fix.y + 'px'; }
+      }
+      paintMini();
+    }
+    dragNode = null;
   });
+  // ---- WireONa State Bridge (src/lib/wireona-bridge.ts) ----
+  // The AI events (auto_wire_circuit / ai-add-part) are routed by the bridge
+  // through this engine adapter, so swapping in a real WireONa web engine later
+  // only requires implementing CircuitEngine — no AI/tool changes.
+  const circuitEngine = {
+    id: 'legacy-svg',
+    getState: () => state,
+    setState: (s) => { state = s; render(); if (simOn) simTick(); },
+    addPart: (type) => {
+      if (!type || !PARTS[type]) return null;
+      addNode(type);
+      layoutNow(false);           /* AI-added parts snap into the hierarchy instantly */
+      return state.nodes[state.nodes.length - 1]?.id || null;
+    },
+    connectWire: (a, b, color) => {
+      const wire = { id: uid(), a, b, color: color || '#f59e0b' };
+      state.wires.push(wire);
+      drawWires();
+      if (simOn) simTick(true);
+      return wire;
+    },
+    snapshot: () => snapshotSVG(),
+  };
+  const bridge = installWireonaBridge(circuitEngine);
 
-  // AI batch wiring (agentic): dedup by endpoints, then re-validate
-  window.addEventListener('wattouna:ai-wire-batch', (e) => {
-    const wires = (e.detail && e.detail.wires) || [];
-    const seen = new Set(state.wires.map((w) => [w.a, w.b].sort().join('|')));
-    let added = 0;
-    wires.forEach((w) => {
-      if (!w || !w.a || !w.b) return;
-      const k = [w.a, w.b].sort().join('|');
-      if (seen.has(k)) return;
-      seen.add(k);
-      state.wires.push({ id: uid(), a: w.a, b: w.b, color: w.color || '#f59e0b' });
-      added++;
-    });
-    drawWires();
+  // UX feedback for bridge-driven AI mutations (listener order: bridge mutates first, then we report).
+  window.addEventListener(SYNC_EVENT, (e) => {
+    const d = e.detail || {};
+    if (d.source === 'ai-add-part' && d.type && PARTS[d.type]) say(`🤖 أضاف المساعد: ${PARTS[d.type].name}`, true);
+    if (d.source === 'ai-wire-batch') say(d.added ? `🤖 ركّب المساعد ${d.added} أسلاك ✅` : 'الأسلاك موجودة مسبقًا 👍', true);
     if (simOn) simTick();
-    say(added ? `🤖 ركّب المساعد ${added} أسلاك ✅` : 'الأسلاك موجودة مسبقًا 👍', true);
   });
 
   // Agentic hooks: canvas state + schematic snapshot for the AI + PDF tools
@@ -526,28 +734,30 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
     });
     return s + '</svg>';
   }
-  window.__wattounaWB = {
-    getState: () => JSON.parse(JSON.stringify(state)),
-    snapshot: snapshotSVG,
-  };
+  // window.__wattounaWB is published by installWireonaBridge() above:
+  //   .getState() / .snapshot() — legacy API (VoiceAI/DeviceSync/CreatorStudio)
+  //   .canvas_state — live state getter for the Union-Find + AI readers
 
   window.addEventListener('resize', drawWires);
 
   /* ---------------- validate (short-circuit check) ---------------- */
   function buildNets(btnLinks, latchLinks) {
+    // Read through the bridge so the short-circuit detector always sees the
+    // engine's live canvas_state (per the WireONa state-bridge contract).
+    const S = (window.__wattounaWB && window.__wattounaWB.canvas_state) || state;
     const parent = {};
     const find = (x) => { parent[x] = parent[x] || x; return parent[x] === x ? x : (parent[x] = find(parent[x])); };
     const uni = (a, b) => { parent[find(a)] = find(b); };
     const netOf = {};
-    state.nodes.forEach((nd) => {
+    S.nodes.forEach((nd) => {
       (PARTS[nd.type]?.terms || []).forEach((t) => { netOf[termKey(nd.id, t.id)] = t.net; parent[termKey(nd.id, t.id)] = termKey(nd.id, t.id); });
     });
     // common-bus parts (WAGO): all BUS terminals of one node are internally joined
-    state.nodes.forEach((nd) => {
+    S.nodes.forEach((nd) => {
       const bus = (PARTS[nd.type]?.terms || []).filter((t) => t.net === 'BUS').map((t) => termKey(nd.id, t.id));
       for (let i = 1; i < bus.length; i++) uni(bus[0], bus[i]);
     });
-    state.wires.forEach((w) => { if (netOf[w.a] && netOf[w.b]) uni(w.a, w.b); });
+    S.wires.forEach((w) => { if (netOf[w.a] && netOf[w.b]) uni(w.a, w.b); });
     (btnLinks || []).forEach(([a, b]) => { if (netOf[a] && netOf[b]) uni(a, b); });
     (latchLinks || []).forEach(([a, b]) => { if (netOf[a] && netOf[b]) uni(a, b); });
     const sets = {};
@@ -933,4 +1143,86 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   .wb-node.pressed { outline: 2px solid var(--green); box-shadow: 0 0 18px rgba(34,197,94,.5); }
   .wb-node-graphic svg { transition: transform .25s ease; }
   .wb-node-head span { display: inline-flex; gap: .15rem; }
+
+  /* ============ Visual Singularity: Cyber-Physical Canvas shell ============ */
+  .wb-canvas {
+    background:
+      radial-gradient(circle at 1px 1px, rgba(56,189,248,.16) 1px, transparent 1px) 0 0/24px 24px,
+      radial-gradient(circle at 1px 1px, rgba(56,189,248,.05) 1px, transparent 1px) 0 0/120px 120px,
+      linear-gradient(180deg, #060b18 0%, #0a1226 55%, #081020 100%);
+    box-shadow: inset 0 0 60px rgba(2,8,24,.9), inset 0 1px 0 rgba(148,197,255,.06);
+    border: 1px solid rgba(56,189,248,.22);
+  }
+  .wb-canvas::before {
+    content: '';
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(56,189,248,.05), transparent 12%, transparent 88%, rgba(0,0,0,.25));
+    z-index: 1;
+  }
+  #wbSvg { z-index: 2; }
+  #wbNodes { z-index: 3; }
+  #wbFx { z-index: 4; }
+
+  /* magnetic terminal highlight */
+  .wb-term.magnet {
+    border-color: var(--amber);
+    box-shadow: 0 0 16px 4px rgba(245,158,11,.85);
+    transform: translate(-50%, -50%) scale(1.35);
+    animation: wai-blink .6s infinite;
+  }
+  .wb-term.side-r.magnet { transform: translate(50%, -50%) scale(1.35); }
+
+  /* floating telemetry badges (academic overlays) */
+  .wb-tele {
+    position: absolute;
+    top: -11px; inset-inline-start: 10px;
+    font-size: .62rem;
+    font-family: ui-monospace, monospace;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--ink);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    opacity: 0;
+    transition: opacity .2s;
+    pointer-events: none;
+    z-index: 6;
+    white-space: nowrap;
+  }
+  .wb-tele.on { opacity: 1; }
+  .wb-tele.tele-v { color: #fca5a5; border-color: rgba(239,68,68,.55); background: rgba(239,68,68,.10); box-shadow: 0 0 12px rgba(239,68,68,.25); }
+  .wb-tele.tele-idle { color: var(--muted); }
+
+  /* active current animation — glowing flowing dashes on wires */
+  #wbSvg.sim-on path {
+    filter: drop-shadow(0 0 4px currentColor);
+  }
+  #wbSvg.sim-on path { stroke-dasharray: 9 7; animation: wb-flow .45s linear infinite; }
+
+  /* minimap */
+  #wbMini {
+    position: absolute;
+    bottom: 10px; inset-inline-end: 10px;
+    background: rgba(4,9,20,.82);
+    border: 1px solid rgba(56,189,248,.3);
+    border-radius: 10px;
+    padding: 4px;
+    z-index: 7;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 8px 24px rgba(0,0,0,.55);
+  }
+  #wbMini.empty { display: none; }
+  #wbMiniCv { display: block; border-radius: 7px; }
+
+  /* smart-layout button */
+  .wb-zoom #wbLayout {
+    font-family: inherit;
+    font-size: .78rem;
+    color: var(--cyan);
+    border-inline-end: 1px solid var(--border);
+    padding-inline-end: .55rem;
+    margin-inline-end: .15rem;
+  }
 </style>

@@ -1,4 +1,5 @@
 ---
+import i18n from '../vendor/i18n.js';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import WattounaAI from '../components/WattounaAI.astro';
@@ -10,14 +11,25 @@ interface Props {
   title?: string;
   description?: string;
 }
-const { title = 'واطُنا Wattouna — اصنع محطة طاقتك الشمسية', description = 'منصة مفتوحة المصدر للطاقة الشمسية DIY وإعادة تدوير البطاريات. مشروع PBX-36 Modular Ultra: مولد شمسي 36V بتسريب صفري 0.00mA.' } = Astro.props;
+const defaultLocale = 'ar-TN';
+const savedLocale = typeof localStorage !== 'undefined' && localStorage.getItem('wattouna-locale') || undefined;
+const detectedLocale = savedLocale || (
+  typeof navigator !== 'undefined' ?
+    (navigator.language || '').toLowerCase().startsWith('fr') ? 'fr' :
+    (navigator.language || '').toLowerCase().startsWith('en') ? 'en' :
+    defaultLocale
+    : defaultLocale
+) as i18n.Locale;
+const locale = i18n.locales.find((l) => l.locale === detectedLocale) || i18n.locales.find((l) => l.locale === defaultLocale) || i18n.locales[0];
+const title = title || i18n.t('brand.title');
+const description = description || i18n.t('meta.desc');
 ---
 <!doctype html>
-<html lang="ar" dir="rtl">
+<html lang={locale.locale} dir={locale.dir} data-i18n-locale={locale.locale}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content={description} />
+    <meta name={i18n.t('meta.title')} content={description} />
     <meta name="theme-color" content="#070c18" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
@@ -48,6 +60,14 @@ const { title = 'واطُنا Wattouna — اصنع محطة طاقتك الشم
     <Footer />
     <WattounaAI />
     <OfflineToast />
+    <script>
+      // Boot the multilingual shell (ar-TN default, persist choice, apply dir, tag chrome).
+      import { bootstrapI18n } from '/vendor/i18n.js';
+
+      // Bootstrap against the document root; the language switcher is injected in the
+      // header component at mount time via the same library.
+      bootstrapI18n({ target: document.documentElement });
+    </script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
