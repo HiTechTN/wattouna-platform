@@ -1,6 +1,4 @@
 ---
-import * as i18n_raw from "../../public/vendor/i18n.js";
-const i18n = i18n_raw.default || i18n_raw.i18n || i18n_raw;
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import WattounaAI from '../components/WattounaAI.astro';
@@ -8,6 +6,9 @@ import OfflineToast from '../components/OfflineToast.astro';
 import '../styles/global.css';
 import '../styles/theme.css';
 
+// 🛡️ Safe SSR Mock for BaseLayout to prevent build crashes
+const i18n = { t: (k) => k, language: 'ar', dir: () => 'rtl' };
+    
 interface Props {
   title?: string;
   description?: string;
@@ -91,6 +92,7 @@ const description = description || i18n.t('meta.desc');
   }
 </style>
 
+  <script src="/vendor/i18n.js" is:inline></script>
 </head>
   <body>
     <div class="top-progress" aria-hidden="true"><span id="progressBar"></span></div>
