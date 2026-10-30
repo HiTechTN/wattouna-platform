@@ -1,4 +1,6 @@
 ---
+import Wattouna3DLab from "../components/Wattouna3DLab.astro";
+
 import BaseLayout from '../layouts/BaseLayout.astro';
 import VoiceAI from '../components/VoiceAI.astro';
 import DeviceSync from '../components/DeviceSync.astro';
@@ -7,25 +9,10 @@ const SUPA_URL = import.meta.env.PUBLIC_SUPABASE_URL || '';
 const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 ---
 <BaseLayout title="المختبر — لوحة دوائر الصانعين">
+  <Wattouna3DLab />
 
-  <!-- المختبر الفيزيائي 3D (NASA Cyber-Lab) -->
-  <section class="cyber-panel" style="max-width: 1280px; margin: 28px auto; padding: 20px; background: rgba(15, 23, 42, 0.85); border: 1px solid #06b6d4; border-radius: 12px; box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-      <h2 style="font-family: monospace; color: #06b6d4; text-shadow: 0 0 10px rgba(6, 182, 212, 0.5); font-size:1.35rem; margin:0; font-weight: bold;">
-        🔬 المختبر الفيزيائي ثلاثي الأبعاد والمجهر الذري (3D Engine)
-      </h2>
-      <span style="font-size:0.85rem; color: #10b981; font-weight: bold; font-family: monospace;">STATUS: ONLINE | 60FPS</span>
-    </div>
-    <div id="wattouna-3d-lab-root" style="border-radius:12px; overflow:hidden; border: 1px solid rgba(56, 189, 248, 0.3);"></div>
-  </section>
-  <script type="module">
-    import { mountWattouna3DLab } from '/vendor/wattouna-3d-lab.js';
-    setTimeout(() => {
-      if (typeof mountWattouna3DLab === 'function') {
-        mountWattouna3DLab('#wattouna-3d-lab-root');
-      }
-    }, 500);
-  </script>
+
+  
 
   <div class="container block" style="padding-top:2rem;max-width:1280px">
     <div class="section-head">
@@ -1247,3 +1234,22 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   }
 </style>
 
+
+<style is:global>
+  html.dark body, body {
+    background-color: #020617 !important;
+    background-image: 
+      linear-gradient(rgba(30, 41, 59, 0.6) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(30, 41, 59, 0.6) 1px, transparent 1px) !important;
+    background-size: 30px 30px !important;
+    background-position: center top !important;
+  }
+  html.dark .component-box, html.dark svg rect {
+    stroke: #06b6d4 !important;
+    border-color: #06b6d4 !important;
+    box-shadow: 0 0 8px rgba(6, 182, 212, 0.4) !important;
+  }
+  html.dark svg path {
+    filter: drop-shadow(0 0 3px #06b6d4) !important;
+  }
+</style>

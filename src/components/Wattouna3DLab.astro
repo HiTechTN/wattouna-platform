@@ -1,0 +1,32 @@
+---
+// Wattouna3DLab.astro - Native 3D Cyber-Physical Lab Component
+---
+<section class="cyber-panel" style="max-width: 1280px; margin: 28px auto; padding: 20px; background: rgba(15, 23, 42, 0.85); border: 1px solid #06b6d4; border-radius: 12px; box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+    <h2 style="font-family: monospace; color: #06b6d4; text-shadow: 0 0 10px rgba(6, 182, 212, 0.5); font-size:1.35rem; margin:0; font-weight: bold;">
+      🔬 المختبر الفيزيائي ثلاثي الأبعاد والمجهر الذري (3D Engine)
+    </h2>
+    <span style="font-size:0.85rem; color: #10b981; font-weight: bold; font-family: monospace;">STATUS: ONLINE | 60FPS</span>
+  </div>
+  <div id="wattouna-3d-lab-root" style="border-radius:12px; overflow:hidden; border: 1px solid rgba(56, 189, 248, 0.3); height: 560px; position: relative;">
+      <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #06b6d4; font-family: monospace;">جاري تحميل محرك الفيزياء...</div>
+  </div>
+</section>
+
+<script type="module" is:inline>
+  import { mountWattouna3DLab } from '/vendor/wattouna-3d-lab.js';
+  
+  const initLab = () => {
+    const root = document.querySelector('#wattouna-3d-lab-root');
+    if (root && typeof mountWattouna3DLab === 'function') {
+      root.innerHTML = '';
+      mountWattouna3DLab('#wattouna-3d-lab-root');
+    }
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initLab);
+  } else {
+    initLab();
+  }
+</script>
