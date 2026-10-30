@@ -1,5 +1,6 @@
 ---
-import i18n from '/vendor/i18n.js';
+import * as i18n_raw from "../../public/vendor/i18n.js";
+const i18n = i18n_raw.default || i18n_raw.i18n || i18n_raw;
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import WattounaAI from '../components/WattounaAI.astro';
@@ -102,7 +103,7 @@ const description = description || i18n.t('meta.desc');
     <OfflineToast />
     <script>
       // Boot the multilingual shell (ar-TN default, persist choice, apply dir, tag chrome).
-      import { bootstrapI18n } from '/vendor/i18n.js';
+      import { bootstrapI18n } from "../../public/vendor/i18n.js";
 
       // Bootstrap against the document root; the language switcher is injected in the
       // header component at mount time via the same library.
