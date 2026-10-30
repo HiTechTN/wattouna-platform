@@ -1,0 +1,80 @@
+/* 
+  Wattouna NASA/Cyber-Physical Global Design System
+  Deep dark space, glowing telemetry, and academic blueprint grids.
+*/
+:root {
+  --bg-deep: #020617; /* Deep Space Black */
+  --bg-panel: rgba(15, 23, 42, 0.85); /* Translucent Panels */
+  --neon-cyan: #06b6d4; /* Active/Telemetry */
+  --neon-blue: #3b82f6; /* Trust/Academic */
+  --neon-amber: #f59e0b; /* Warnings/Energy */
+  --neon-green: #10b981; /* Success/Flow */
+  --grid-color: rgba(30, 41, 59, 0.6);
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+}
+
+body {
+  background-color: var(--bg-deep);
+  color: var(--text-main);
+  /* The Blueprint / NASA Grid Background */
+  background-image: 
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 30px 30px;
+  background-position: center top;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism Panels for Headers and Tools */
+.cyber-panel {
+  background: var(--bg-panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Glowing Telemetry Text */
+.telemetry-text {
+  font-family: monospace;
+  color: var(--neon-cyan);
+  text-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+/* Cyber Buttons */
+.cyber-button {
+  background: transparent;
+  color: var(--neon-cyan);
+  border: 1px solid var(--neon-cyan);
+  padding: 8px 16px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  font-weight: bold;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.cyber-button:hover {
+  background: rgba(6, 182, 212, 0.15);
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+}
+
+.cyber-button.amber {
+  color: var(--neon-amber);
+  border-color: var(--neon-amber);
+}
+.cyber-button.amber:hover {
+  background: rgba(245, 158, 11, 0.15);
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+}
