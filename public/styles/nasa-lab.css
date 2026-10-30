@@ -1,0 +1,32 @@
+/* Wattouna NASA/Cyber-Physical Global Design System */
+:root {
+  --bg-deep: #020617; 
+  --bg-panel: rgba(15, 23, 42, 0.85); 
+  --neon-cyan: #06b6d4; 
+  --neon-blue: #3b82f6; 
+  --neon-amber: #f59e0b; 
+  --neon-green: #10b981; 
+  --grid-color: rgba(30, 41, 59, 0.6);
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+}
+
+body {
+  background-color: var(--bg-deep) !important;
+  color: var(--text-main) !important;
+  background-image: 
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px) !important;
+  background-size: 30px 30px !important;
+  background-position: center top !important;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+}
+
+.cyber-panel {
+  background: var(--bg-panel) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 189, 248, 0.15) !important;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
