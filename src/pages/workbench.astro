@@ -7,6 +7,26 @@ const SUPA_URL = import.meta.env.PUBLIC_SUPABASE_URL || '';
 const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 ---
 <BaseLayout title="المختبر — لوحة دوائر الصانعين">
+
+  <!-- المختبر الفيزيائي 3D (NASA Cyber-Lab) -->
+  <section class="cyber-panel" style="max-width: 1280px; margin: 28px auto; padding: 20px; background: rgba(15, 23, 42, 0.85); border: 1px solid #06b6d4; border-radius: 12px; box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+      <h2 style="font-family: monospace; color: #06b6d4; text-shadow: 0 0 10px rgba(6, 182, 212, 0.5); font-size:1.35rem; margin:0; font-weight: bold;">
+        🔬 المختبر الفيزيائي ثلاثي الأبعاد والمجهر الذري (3D Engine)
+      </h2>
+      <span style="font-size:0.85rem; color: #10b981; font-weight: bold; font-family: monospace;">STATUS: ONLINE | 60FPS</span>
+    </div>
+    <div id="wattouna-3d-lab-root" style="border-radius:12px; overflow:hidden; border: 1px solid rgba(56, 189, 248, 0.3);"></div>
+  </section>
+  <script type="module">
+    import { mountWattouna3DLab } from '/vendor/wattouna-3d-lab.js';
+    setTimeout(() => {
+      if (typeof mountWattouna3DLab === 'function') {
+        mountWattouna3DLab('#wattouna-3d-lab-root');
+      }
+    }, 500);
+  </script>
+
   <div class="container block" style="padding-top:2rem;max-width:1280px">
     <div class="section-head">
       <span class="kicker">🧪 مختبر الصانعين — Maker Canvas</span>
@@ -1227,21 +1247,3 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
   }
 </style>
 
-<!-- 3D Digital Twin & Atomic X-Ray Laboratory -->
-<section style="max-width: 1280px; margin: 28px auto; padding: 0 16px;">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-    <h2 style="font-size:1.35rem; font-weight:800; color:#f59e0b; margin:0;">
-      🔬 المختبر الفيزيائي ثلاثي الأبعاد والمجهر الذري (3D Twin & X-Ray Physics)
-    </h2>
-    <span style="font-size:0.85rem; color:#38bdf8;">60FPS Offline WebGL/Canvas Engine</span>
-  </div>
-  <div id="wattouna-3d-lab-root"></div>
-</section>
-<script type="module">
-  import { mountWattouna3DLab } from '/vendor/wattouna-3d-lab.js';
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => mountWattouna3DLab('#wattouna-3d-lab-root'));
-  } else {
-    mountWattouna3DLab('#wattouna-3d-lab-root');
-  }
-</script>
