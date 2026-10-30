@@ -1,133 +1,53 @@
 ---
+// 🚀 Native BaseLayout
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
-import WattounaAI from '../components/WattounaAI.astro';
-import OfflineToast from '../components/OfflineToast.astro';
-import '../styles/global.css';
-import '../styles/theme.css';
 
-// 🛡️ Safe SSR Mock for BaseLayout to prevent build crashes
-const i18n = { t: (k) => k, language: 'ar', dir: () => 'rtl' };
-    
-interface Props {
-  title?: string;
-  description?: string;
-}
-const defaultLocale = 'ar-TN';
-const savedLocale = typeof localStorage !== 'undefined' && localStorage.getItem('wattouna-locale') || undefined;
-const detectedLocale = savedLocale || (
-  typeof navigator !== 'undefined' ?
-    (navigator.language || '').toLowerCase().startsWith('fr') ? 'fr' :
-    (navigator.language || '').toLowerCase().startsWith('en') ? 'en' :
-    defaultLocale
-    : defaultLocale
-) as i18n.Locale;
-const locale = i18n.locales.find((l) => l.locale === detectedLocale) || i18n.locales.find((l) => l.locale === defaultLocale) || i18n.locales[0];
-const title = title || i18n.t('brand.title');
-const description = description || i18n.t('meta.desc');
+const { title = "واطنا | منصة الطاقة النظيفة", description = "منصة تفاعلية لبناء الدوائر" } = Astro.props;
 ---
-<!doctype html>
-<html lang={locale.locale} dir={locale.dir} data-i18n-locale={locale.locale}>
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name={i18n.t('meta.title')} content={description} />
-    <meta name="theme-color" content="#070c18" />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="manifest" href="/manifest.json" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <script is:inline>
-      try {
-        var wt = localStorage.getItem('wattouna-theme') || 'dark-solar';
-        if (wt !== 'dark-solar') document.documentElement.setAttribute('data-theme', wt);
-      } catch (e) {}
-    </script>
     <title>{title}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@300;400;600;700;800&family=Readex+Pro:wght@400;600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles/nasa-lab.css" />
-
-<style is:global>
-  /* NASA THEME OVERRIDE */
-  html, body {
-    background-color: #020617 !important;
-    background-image: 
-      linear-gradient(rgba(6, 182, 212, 0.15) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(6, 182, 212, 0.15) 1px, transparent 1px) !important;
-    background-size: 40px 40px !important;
-    background-position: center top !important;
-    color: #e2e8f0 !important;
-  }
-  
-  /* تحويل كل الكروت في المنصة إلى زجاج فضائي */
-  .card, section, article, .panel {
-    background: rgba(15, 23, 42, 0.75) !important;
-    backdrop-filter: blur(12px) !important;
-    border: 1px solid rgba(6, 182, 212, 0.3) !important;
-    border-radius: 12px !important;
-    color: #f8fafc !important;
-  }
-  
-  /* تحسين المربعات القديمة مؤقتاً لتتماشى مع التطور */
-  .component-box, svg rect {
-     fill: rgba(15, 23, 42, 0.95) !important;
-     stroke: #06b6d4 !important;
-     stroke-width: 2px !important;
-     box-shadow: 0 0 10px rgba(6, 182, 212, 0.5) !important;
-  }
-  svg path {
-     stroke: #3b82f6 !important;
-     filter: drop-shadow(0 0 5px #3b82f6) !important;
-  }
-  h1, h2, h3, h4, h5, h6 {
-     color: #06b6d4 !important;
-     text-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
-  }
-</style>
-
-  <script src="/vendor/i18n.js" is:inline></script>
-</head>
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style is:global>
+      /* 🚀 NASA THEME GLOBALLY APPLIED */
+      html, body {
+        background-color: #020617 !important;
+        background-image: 
+          linear-gradient(rgba(6, 182, 212, 0.15) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(6, 182, 212, 0.15) 1px, transparent 1px) !important;
+        background-size: 40px 40px !important;
+        background-position: center top !important;
+        color: #e2e8f0 !important;
+        font-family: 'Inter', system-ui, sans-serif !important;
+        margin: 0; min-height: 100vh; overflow-x: hidden;
+      }
+      .cyber-panel {
+        background: rgba(15, 23, 42, 0.85) !important;
+        backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(6, 182, 212, 0.3) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 0 25px rgba(6, 182, 212, 0.2) !important;
+      }
+      /* إضاءة المكونات القديمة */
+      .component-box, svg rect {
+        fill: rgba(15, 23, 42, 0.95) !important;
+        stroke: #06b6d4 !important;
+        stroke-width: 2px !important;
+        box-shadow: 0 0 10px rgba(6, 182, 212, 0.5) !important;
+      }
+      svg path { filter: drop-shadow(0 0 3px #06b6d4) !important; stroke: #06b6d4 !important;}
+    </style>
+  </head>
   <body>
-    <div class="top-progress" aria-hidden="true"><span id="progressBar"></span></div>
     <Header />
     <main>
       <slot />
     </main>
     <Footer />
-    <WattounaAI />
-    <OfflineToast />
-    <script>
-      // Boot the multilingual shell (ar-TN default, persist choice, apply dir, tag chrome).
-      import { bootstrapI18n } from "../../public/vendor/i18n.js";
-
-      // Bootstrap against the document root; the language switcher is injected in the
-      // header component at mount time via the same library.
-      bootstrapI18n({ target: document.documentElement });
-    </script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function () {
-          navigator.serviceWorker.register('/sw.js').catch(function () {});
-        });
-      }
-    </script>
-    <script>
-      const bar = document.getElementById('progressBar');
-      const onScroll = () => {
-        const h = document.documentElement;
-        const max = h.scrollHeight - h.clientHeight;
-        const p = max > 0 ? (h.scrollTop / max) * 100 : 0;
-        if (bar) bar.style.width = p + '%';
-      };
-      document.addEventListener('scroll', onScroll, { passive: true });
-      onScroll();
-    </script>
   </body>
 </html>
