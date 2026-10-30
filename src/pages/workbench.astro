@@ -1,17 +1,502 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import Wattouna3DLab from '../components/Wattouna3DLab.astro';
 ---
-<BaseLayout title="واطنا | المختبر السيبراني">
-  
-  <!-- 🚀 المختبر ثلاثي الأبعاد الجديد -->
-  <Wattouna3DLab />
+<BaseLayout title="واطنا | مركز القيادة والمحاكاة ثلاثي الأبعاد">
+  <div class="nasa-command-shell">
+    <!-- الشريط العلوي للتليمتري الحي -->
+    <header class="telemetry-bar">
+      <div class="tb-brand">
+        <span class="pulse-dot"></span>
+        <div>
+          <h1>WATTOUNA // CYBER-PHYSICAL LAB v4.0</h1>
+          <p>مختبر المحاكاة الفيزيائية ثلاثية الأبعاد والمجهر الذري للأنظمة الطاقية</p>
+        </div>
+      </div>
 
-  <!-- مساحة العمل القديمة (تأخذ إضاءة ناسا من BaseLayout) -->
-  <div class="cyber-panel" style="max-width: 1280px; margin: 20px auto; padding: 20px;">
-    <h2 style="color: #06b6d4; font-family: monospace; text-shadow: 0 0 8px rgba(6,182,212,0.5);">⚡ مساحة العمل والتوصيل السريع</h2>
-    <div id="canvas-container" style="min-height: 500px; position: relative;"></div>
+      <div class="tb-metrics">
+        <div class="metric-card">
+          <span class="m-label">BUS VOLTAGE</span>
+          <strong class="m-val cyan" id="hud-voltage">36.8 V</strong>
+        </div>
+        <div class="metric-card">
+          <span class="m-label">CURRENT FLOW</span>
+          <strong class="m-val emerald" id="hud-current">4.25 A</strong>
+        </div>
+        <div class="metric-card">
+          <span class="m-label">POWER OUTPUT</span>
+          <strong class="m-val amber" id="hud-power">156.4 W</strong>
+        </div>
+        <div class="metric-card">
+          <span class="m-label">CORE EFFICIENCY</span>
+          <strong class="m-val purple" id="hud-eff">98.4 %</strong>
+        </div>
+      </div>
+
+      <div class="tb-modes">
+        <button class="mode-btn active" data-scene="powerwall">🔋 منظومة PBX-36 3D</button>
+        <button class="mode-btn" data-scene="mosfet">🔬 المجهر الذري MOSFET</button>
+        <button class="mode-btn" data-scene="solar">☀️ تتبع MPPT الشمسي</button>
+        <button class="mode-btn" data-scene="turbine">⚡ الحث الكهرومغناطيسي</button>
+      </div>
+    </header>
+
+    <!-- شبكة المختبر الرئيسية -->
+    <div class="lab-workspace">
+      <!-- القائمة الجانبية: القطع الفيزيائية الحقيقية -->
+      <aside class="hardware-rack">
+        <div class="rack-header">
+          <span>🧩 ترسانة العتاد الفيزيائي</span>
+          <small>تفاعل لحظي 3D</small>
+        </div>
+
+        <div class="hw-item active" data-focus="pack">
+          <div class="hw-icon battery-vis">10S</div>
+          <div class="hw-info">
+            <h4>مصفوفة ليثيوم 36V 10S3P</h4>
+            <p>خلايا 18650 مُعاد تدويرها • BMS ذكي</p>
+            <div class="hw-tags"><span>36.8V</span><span>10.4Ah</span></div>
+          </div>
+        </div>
+
+        <div class="hw-item" data-focus="mosfet">
+          <div class="hw-icon chip-vis">IRF</div>
+          <div class="hw-info">
+            <h4>قاطع Zero-Drain Latch</h4>
+            <p>ترانزستور P-MOSFET IRF4905 + TL431</p>
+            <div class="hw-tags"><span>0.00mA Standby</span><span>55V/74A</span></div>
+          </div>
+        </div>
+
+        <div class="hw-item" data-focus="mppt">
+          <div class="hw-icon mppt-vis">MPPT</div>
+          <div class="hw-info">
+            <h4>وحدة LTC3780 Buck-Boost</h4>
+            <p>شحن شمسي متقدم وتتبع أقصى نقطة طاقة</p>
+            <div class="hw-tags"><span>5-32V In</span><span>160W Max</span></div>
+          </div>
+        </div>
+
+        <div class="hw-item" data-focus="usbc">
+          <div class="hw-icon pd-vis">PD</div>
+          <div class="hw-info">
+            <h4>مخرج IP2368 USB-C PD</h4>
+            <p>تغذية عكسية سريعة للحواسيب والمعدات</p>
+            <div class="hw-tags"><span>100W</span><span>20V/5A</span></div>
+          </div>
+        </div>
+
+        <div class="hw-item" data-focus="esp32">
+          <div class="hw-icon mcu-vis">ESP</div>
+          <div class="hw-info">
+            <h4>نواة التليمتري ESP32-S3</h4>
+            <p>مراقبة طاقية وحرق مباشر عبر WebSerial</p>
+            <div class="hw-tags"><span>WiFi/BLE</span><span>Dual-Core</span></div>
+          </div>
+        </div>
+
+        <!-- متحكمات الفيزياء الحية -->
+        <div class="physics-controls">
+          <div class="rack-header">
+            <span>🎛️ غرفة التحكم الفيزيائي</span>
+            <small>LIVE PARAMS</small>
+          </div>
+
+          <label class="ctrl-row">
+            <span>شدة الإشعاع الشمسي (Solar Irradiance)</span>
+            <input type="range" id="ctrl-solar" min="0" max="1000" value="850" />
+            <em id="val-solar">850 W/m²</em>
+          </label>
+
+          <label class="ctrl-row">
+            <span>جهد البوابة Gate Drive (Vgs)</span>
+            <input type="range" id="ctrl-vgs" min="0" max="15" step="0.1" value="10.5" />
+            <em id="val-vgs">10.5 V</em>
+          </label>
+
+          <label class="ctrl-row">
+            <span>الحمل المطلوب (Load Demand)</span>
+            <input type="range" id="ctrl-load" min="5" max="250" value="120" />
+            <em id="val-load">120 W</em>
+          </label>
+
+          <div class="ctrl-actions">
+            <button id="btn-xray" class="cyber-btn cyan">🔬 تفعيل أشعة X-Ray الذرية</button>
+            <button id="btn-fault" class="cyber-btn amber">⚡ اختبار قاطع الحماية</button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- المنصة الوسطى: محرك الـ 3D والهولوغرام -->
+      <section class="viewport-stage">
+        <div class="viewport-Frame">
+          <div class="vp-overlay-top">
+            <span class="vp-badge">🛰️ WEBGL 3D REALTIME SIMULATION</span>
+            <span class="vp-hint">اسحب لتدوير المجسم 360° • عجلة الماوس للتقريب الذري • انقر على أي مركّب لتفكيكه</span>
+          </div>
+
+          <!-- الكانفاس ثلاثي الأبعاد -->
+          <div id="wattouna-3d-lab-root" class="stage-3d-canvas"></div>
+
+          <!-- لوحة الشرح الأكاديمي التفاعلي أسفل الـ 3D -->
+          <div class="vp-academic-hud" id="academic-explainer">
+            <div class="acad-icon">🧠</div>
+            <div class="acad-text">
+              <h3 id="acad-title">البنية الفيزيائية لمنظومة PBX-36 Modular Ultra</h3>
+              <p id="acad-desc">
+                تتدفق الإلكترونات الآن من مصفوفة الخلايا (10S3P) عبر قاطع الـ MOSFET فائق الكفاءة بدون أي استهلاك طفيلي (Zero-Drain)، ليتم تنظيم الجهد عبر محول الـ Buck-Boost المتزامن بدقة 98.4%. حرّك المؤشرات على اليمين لمشاهدة استجابة الذرات والحقول الكهرومغناطيسية لحظياً!
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- اللوحة اليسرى: الأوسيلوسكوب والأدوات الهندسية -->
+      <aside class="diagnostics-rack">
+        <div class="rack-header">
+          <span>📈 راسم الإشارات الطاقي (Oscilloscope)</span>
+          <small>60Hz REALTIME</small>
+        </div>
+        <canvas id="scope-canvas" width="320" height="170"></canvas>
+
+        <div class="scope-legend">
+          <span class="leg-cyan">● الجهد V(t)</span>
+          <span class="leg-emerald">● التيار I(t)</span>
+          <span class="leg-amber">● نبضات PWM</span>
+        </div>
+
+        <div class="rack-header" style="margin-top:16px;">
+          <span>🌍 الأثر البيئي والسيادة الطاقية</span>
+          <small>ECO IMPACT</small>
+        </div>
+        <div class="eco-box">
+          <div class="eco-stat">
+            <span>خلايا ليثيوم مُنقذة من التلوث</span>
+            <strong>30 خلية 18650</strong>
+          </div>
+          <div class="eco-stat">
+            <span>تخفيض الانبعاثات السنوي</span>
+            <strong class="emerald">-142.5 kg CO₂</strong>
+          </div>
+          <div class="eco-stat">
+            <span>الطاقة المهدورة في وضع السكون</span>
+            <strong class="cyan">0.000 mW</strong>
+          </div>
+        </div>
+
+        <div class="rack-header" style="margin-top:16px;">
+          <span>⚡ الربط مع العتاد الحقيقي</span>
+          <small>HARDWARE I/O</small>
+        </div>
+        <div class="hw-io-buttons">
+          <button class="cyber-btn emerald full" onclick="window.location.href='/projects/pbx-36'">📐 فتح المخطط الهندسي الكامل وملفات STL</button>
+          <button class="cyber-btn cyan full" id="btn-webserial">🔌 ربط ESP32 عبر منفذ USB (WebSerial)</button>
+        </div>
+      </aside>
+    </div>
   </div>
 
-  <script src="/vendor/wattouna-canvas.js" is:inline></script>
+  <script type="module" is:inline>
+    import { mountWattouna3DLab } from '/vendor/wattouna-3d-lab.js';
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const root = document.getElementById('wattouna-3d-lab-root');
+      if (root && typeof mountWattouna3DLab === 'function') {
+        mountWattouna3DLab('#wattouna-3d-lab-root');
+      }
+
+      // تفعيل راسم الإشارات الحي (Oscilloscope)
+      const scope = document.getElementById('scope-canvas');
+      const ctx = scope ? scope.getContext('2d') : null;
+      let phase = 0;
+
+      const solarInput = document.getElementById('ctrl-solar');
+      const vgsInput = document.getElementById('ctrl-vgs');
+      const loadInput = document.getElementById('ctrl-load');
+
+      function updateTelemetry() {
+        const solar = Number(solarInput?.value || 850);
+        const vgs = Number(vgsInput?.value || 10.5);
+        const load = Number(loadInput?.value || 120);
+
+        document.getElementById('val-solar').textContent = solar + ' W/m²';
+        document.getElementById('val-vgs').textContent = vgs.toFixed(1) + ' V';
+        document.getElementById('val-load').textContent = load + ' W';
+
+        const activeGate = vgs >= 3.5 ? 1 : 0.05;
+        const voltage = (32.0 + (solar / 1000) * 9.5) * (activeGate ? 1 : 0.1);
+        const current = activeGate ? (load / Math.max(voltage, 12)) : 0;
+        const power = voltage * current;
+        const eff = activeGate ? Math.min(99.1, 92 + (vgs / 15) * 6.5) : 0;
+
+        document.getElementById('hud-voltage').textContent = voltage.toFixed(1) + ' V';
+        document.getElementById('hud-current').textContent = current.toFixed(2) + ' A';
+        document.getElementById('hud-power').textContent = power.toFixed(1) + ' W';
+        document.getElementById('hud-eff').textContent = eff.toFixed(1) + ' %';
+      }
+
+      [solarInput, vgsInput, loadInput].forEach(el => el?.addEventListener('input', updateTelemetry));
+      updateTelemetry();
+
+      // رسم الموجات الكهرومغناطيسية الحية
+      function renderScope() {
+        if (!ctx) return;
+        const w = scope.width;
+        const h = scope.height;
+        ctx.fillStyle = 'rgba(2, 6, 23, 0.35)';
+        ctx.fillRect(0, 0, w, h);
+
+        // شبكة الأوسيلوسكوب
+        ctx.strokeStyle = 'rgba(6, 182, 212, 0.12)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < w; x += 32) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+        for (let y = 0; y < h; y += 32) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+        const vgs = Number(vgsInput?.value || 10.5);
+        const load = Number(loadInput?.value || 120);
+
+        // موجة الجهد
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let x = 0; x < w; x++) {
+          const y = h * 0.35 + Math.sin((x * 0.04) + phase) * (vgs * 1.4);
+          x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // موجة التيار
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let x = 0; x < w; x++) {
+          const y = h * 0.68 + Math.cos((x * 0.05) + phase * 1.3) * (load * 0.08);
+          x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        phase += 0.08;
+        requestAnimationFrame(renderScope);
+      }
+      renderScope();
+
+      // التبديل بين المشاهد الأكاديمية
+      const explanations = {
+        powerwall: {
+          title: '🔋 منظومة PBX-36 Modular Ultra ثلاثية الأبعاد',
+          desc: 'محاكاة فيزيائية كاملة لتدفق الطاقة بين مصفوفة الليثيوم 10S3P، قاطع الحماية اللاتش، ووحدات الخرج الذكية مع توزيع حراري وكهرومغناطيسي لحظي.'
+        },
+        mosfet: {
+          title: '🔬 المجهر الذري: قناة الترانزستور P-MOSFET من الداخل',
+          desc: 'شاهد كيف يؤدي تطبيق جهد البوابة (Vgs) إلى جذب حاملات الشحنة وتكوين قناة التوصيل بدون أي استهلاك مستمر، مما يمنح المنصة ميزة Zero-Drain الفريدة.'
+        },
+        solar: {
+          title: '☀️ خوارزمية تتبع نقطة الطاقة القصوى (MPPT)',
+          desc: 'محاكاة حية لكيفية موازنة محول Buck-Boost بين الجهد والتيار القادمين من الألواح الشمسية لاستخراج أقصى طاقة ممكنة حتى في الإضاءة الضعيفة.'
+        },
+        turbine: {
+          title: '⚡ قانون فاراداي والحث الكهرومغناطيسي ثلاثي الأبعاد',
+          desc: 'تفاعل الخطوط المغناطيسية مع الملفات النحاسية لتوليد التيار المتناوب وتحويله إلى طاقة نظيفة قابلة للتخزين.'
+        }
+      };
+
+      document.querySelectorAll('.mode-btn').forEach((btn, idx) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const key = btn.getAttribute('data-scene');
+          if (explanations[key]) {
+            document.getElementById('acad-title').textContent = explanations[key].title;
+            document.getElementById('acad-desc').textContent = explanations[key].desc;
+          }
+          // تمرير الحدث للأزرار الداخلية في مختبر الـ 3D
+          const internalBtns = document.querySelectorAll('#wattouna-3d-lab-root button');
+          if (internalBtns[idx]) internalBtns[idx].click();
+        });
+      });
+    });
+  </script>
+
+  <style>
+    .nasa-command-shell {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 16px 20px 40px;
+      color: #f8fafc;
+    }
+    .telemetry-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 22px;
+      background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(2,6,23,0.95));
+      border: 1px solid rgba(6, 182, 212, 0.4);
+      border-radius: 16px;
+      box-shadow: 0 0 35px rgba(6, 182, 212, 0.18), inset 0 1px 0 rgba(255,255,255,0.1);
+      margin-bottom: 20px;
+    }
+    .tb-brand { display: flex; align-items: center; gap: 14px; }
+    .tb-brand h1 { margin: 0; font-size: 1.25rem; font-family: monospace; color: #06b6d4; letter-spacing: 1px; text-shadow: 0 0 12px rgba(6,182,212,0.6); }
+    .tb-brand p { margin: 2px 0 0; font-size: 0.82rem; color: #94a3b8; }
+    .pulse-dot {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 14px #10b981;
+      animation: pulseGlow 1.6s infinite alternate;
+    }
+    @keyframes pulseGlow { from { opacity: 0.4; transform: scale(0.9); } to { opacity: 1; transform: scale(1.2); } }
+
+    .tb-metrics { display: flex; gap: 12px; flex-wrap: wrap; }
+    .metric-card {
+      background: rgba(2, 6, 23, 0.8);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 8px 14px;
+      border-radius: 10px;
+      min-width: 115px;
+      text-align: center;
+    }
+    .m-label { display: block; font-size: 0.65rem; font-family: monospace; color: #64748b; letter-spacing: 1px; }
+    .m-val { font-size: 1.15rem; font-family: monospace; }
+    .cyan { color: #06b6d4; text-shadow: 0 0 10px rgba(6,182,212,0.5); }
+    .emerald { color: #10b981; text-shadow: 0 0 10px rgba(16,185,129,0.5); }
+    .amber { color: #f59e0b; text-shadow: 0 0 10px rgba(245,158,11,0.5); }
+    .purple { color: #a855f7; text-shadow: 0 0 10px rgba(168,85,247,0.5); }
+
+    .tb-modes { display: flex; gap: 8px; flex-wrap: wrap; }
+    .mode-btn {
+      background: rgba(15, 23, 42, 0.9);
+      color: #cbd5e1;
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      padding: 8px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.82rem;
+      transition: all 0.25s ease;
+    }
+    .mode-btn:hover, .mode-btn.active {
+      background: rgba(6, 182, 212, 0.2);
+      color: #fff;
+      border-color: #06b6d4;
+      box-shadow: 0 0 18px rgba(6, 182, 212, 0.4);
+    }
+
+    .lab-workspace {
+      display: grid;
+      grid-template-columns: 330px 1fr 340px;
+      gap: 20px;
+      align-items: start;
+    }
+    @media (max-width: 1200px) {
+      .lab-workspace { grid-template-columns: 1fr; }
+    }
+
+    .hardware-rack, .diagnostics-rack, .viewport-Frame {
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(14px);
+    }
+    .rack-header {
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid rgba(6, 182, 212, 0.2);
+      padding-bottom: 10px; margin-bottom: 12px;
+      font-weight: 700; color: #06b6d4; font-size: 0.9rem;
+    }
+    .rack-header small { font-family: monospace; color: #64748b; font-size: 0.7rem; }
+
+    .hw-item {
+      display: flex; gap: 12px; align-items: center;
+      padding: 10px; border-radius: 12px;
+      background: rgba(2, 6, 23, 0.65);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      margin-bottom: 10px; cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .hw-item:hover, .hw-item.active {
+      border-color: #06b6d4;
+      background: rgba(6, 182, 212, 0.1);
+      transform: translateX(-3px);
+    }
+    .hw-icon {
+      width: 48px; height: 48px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: monospace; font-weight: 900; font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+    .battery-vis { background: linear-gradient(135deg, #0284c7, #0369a1); border: 1px solid #38bdf8; color: #fff; }
+    .chip-vis { background: linear-gradient(135deg, #334155, #0f172a); border: 1px solid #f59e0b; color: #f59e0b; }
+    .mppt-vis { background: linear-gradient(135deg, #065f46, #064e3b); border: 1px solid #10b981; color: #10b981; }
+    .pd-vis { background: linear-gradient(135deg, #581c87, #3b0764); border: 1px solid #c084fc; color: #e9d5ff; }
+    .mcu-vis { background: linear-gradient(135deg, #1e293b, #090d16); border: 1px solid #06b6d4; color: #06b6d4; }
+
+    .hw-info h4 { margin: 0 0 3px; font-size: 0.88rem; color: #f1f5f9; }
+    .hw-info p { margin: 0 0 6px; font-size: 0.74rem; color: #94a3b8; }
+    .hw-tags { display: flex; gap: 6px; }
+    .hw-tags span {
+      font-size: 0.66rem; font-family: monospace;
+      padding: 2px 6px; border-radius: 4px;
+      background: rgba(6, 182, 212, 0.15); color: #38bdf8;
+    }
+
+    .physics-controls { margin-top: 16px; }
+    .ctrl-row { display: block; margin-bottom: 12px; font-size: 0.8rem; color: #cbd5e1; }
+    .ctrl-row input[type="range"] { width: 100%; margin: 6px 0 2px; accent-color: #06b6d4; }
+    .ctrl-row em { font-family: monospace; color: #06b6d4; font-style: normal; font-size: 0.8rem; float: left; }
+
+    .ctrl-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .cyber-btn {
+      padding: 10px 14px; border-radius: 10px; font-weight: 700; font-size: 0.82rem;
+      cursor: pointer; background: rgba(2, 6, 23, 0.8); border: 1px solid #06b6d4; color: #06b6d4;
+      transition: all 0.2s ease; text-align: center;
+    }
+    .cyber-btn.amber { border-color: #f59e0b; color: #f59e0b; }
+    .cyber-btn.emerald { border-color: #10b981; color: #10b981; }
+    .cyber-btn:hover { background: rgba(6, 182, 212, 0.2); box-shadow: 0 0 15px rgba(6, 182, 212, 0.35); }
+
+    .vp-overlay-top {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px; font-size: 0.78rem; color: #94a3b8;
+    }
+    .vp-badge {
+      font-family: monospace; color: #10b981;
+      background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.4);
+      padding: 4px 10px; border-radius: 6px;
+    }
+    .stage-3d-canvas {
+      min-height: 540px; border-radius: 12px; overflow: hidden;
+      border: 1px solid rgba(6, 182, 212, 0.4);
+      background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+    }
+    .vp-academic-hud {
+      margin-top: 14px; padding: 14px 16px; border-radius: 12px;
+      background: rgba(2, 6, 23, 0.85); border-right: 4px solid #06b6d4;
+      display: flex; gap: 12px; align-items: flex-start;
+    }
+    .acad-icon { font-size: 1.6rem; }
+    .acad-text h3 { margin: 0 0 4px; font-size: 0.98rem; color: #38bdf8; }
+    .acad-text p { margin: 0; font-size: 0.84rem; color: #cbd5e1; line-height: 1.6; }
+
+    #scope-canvas {
+      width: 100%; height: 170px; border-radius: 10px;
+      background: #020617; border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+    .scope-legend {
+      display: flex; justify-content: space-around; font-size: 0.75rem;
+      margin-top: 8px; font-family: monospace;
+    }
+    .leg-cyan { color: #06b6d4; } .leg-emerald { color: #10b981; } .leg-amber { color: #f59e0b; }
+
+    .eco-box { display: flex; flex-direction: column; gap: 8px; }
+    .eco-stat {
+      display: flex; justify-content: space-between; padding: 10px 12px;
+      background: rgba(2, 6, 23, 0.7); border-radius: 8px; font-size: 0.8rem;
+      border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+    .hw-io-buttons { display: flex; flex-direction: column; gap: 8px; }
+    .full { width: 100%; }
+  </style>
 </BaseLayout>
