@@ -1226,3 +1226,22 @@ const SUPA_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
     margin-inline-end: .15rem;
   }
 </style>
+
+<!-- 3D Digital Twin & Atomic X-Ray Laboratory -->
+<section style="max-width: 1280px; margin: 28px auto; padding: 0 16px;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <h2 style="font-size:1.35rem; font-weight:800; color:#f59e0b; margin:0;">
+      🔬 المختبر الفيزيائي ثلاثي الأبعاد والمجهر الذري (3D Twin & X-Ray Physics)
+    </h2>
+    <span style="font-size:0.85rem; color:#38bdf8;">60FPS Offline WebGL/Canvas Engine</span>
+  </div>
+  <div id="wattouna-3d-lab-root"></div>
+</section>
+<script type="module">
+  import { mountWattouna3DLab } from '/vendor/wattouna-3d-lab.js';
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => mountWattouna3DLab('#wattouna-3d-lab-root'));
+  } else {
+    mountWattouna3DLab('#wattouna-3d-lab-root');
+  }
+</script>

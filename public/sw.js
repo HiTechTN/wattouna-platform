@@ -33,7 +33,7 @@ const SHELL = [
   '/vendor/video-director.js',
   '/vendor/youtube-publisher.js',
   '/vendor/wireona-bridge.js',
-  '/vendor/wattouna-canvas.js',
+  '/vendor/wattouna-canvas.js', '/vendor/wattouna-3d-lab.js',
   '/vendor/i18n.js',
   '/downloads/pbx36-chassis.stl',
   '/downloads/pbx36-front-panel.stl',
